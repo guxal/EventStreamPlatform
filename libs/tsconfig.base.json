@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "paths": {
+      "@metrics-platform/core-shared": ["core-shared/src/index.ts"],
+      "@metrics-platform/core-domain": ["core-domain/src/index.ts"],
+      "@metrics-platform/core-application": ["core-application/src/index.ts"],
+      "@metrics-platform/core-infrastructure": ["core-infrastructure/src/index.ts"]
+    },
+    "declarationMap": true,
+    "emitDeclarationOnly": false,
+    "importHelpers": true,
+    "isolatedModules": true,
+    "lib": ["es2022"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "noEmitOnError": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "es2022",
+    "customConditions": ["development"]
+  }
+}

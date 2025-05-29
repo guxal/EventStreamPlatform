@@ -1,0 +1,26 @@
+{
+  "name": "@metrics-platform/admin-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "implicitDependencies": [
+      "@metrics-platform/admin"
+    ],
+    "targets": {
+      "e2e": {
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{projectRoot}/test-output/jest/coverage"
+        ],
+        "options": {
+          "jestConfig": "admin-e2e/jest.config.ts",
+          "passWithNoTests": true
+        },
+        "dependsOn": [
+          "@metrics-platform/admin:build",
+          "@metrics-platform/admin:serve"
+        ]
+      }
+    }
+  }
+}

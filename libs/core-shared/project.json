@@ -1,0 +1,34 @@
+{
+    "name": "core-shared",
+    "projectType": "library",
+    "root": "libs/core-shared",
+    "sourceRoot": "libs/core-shared/src",
+    "targets": {
+      "build": {
+        "executor": "@nx/js:tsc",
+        "options": {
+          "outputPath": "dist/libs/core-shared",
+          "main": "libs/core-shared/src/index.ts",
+          "tsConfig": "libs/core-shared/tsconfig.lib.json"
+        }
+      },
+      "lint": {
+        "executor": "@nx/linter:eslint",
+        "options": {
+          "lintFilePatterns": [
+            "libs/core-shared/**/*.ts"
+          ]
+        }
+      },
+      "test": {
+        "executor": "@nx/jest:jest",
+        "outputs": ["{options.outputPath}"],
+        "options": {
+          "jestConfig": "libs/core-shared/jest.config.ts",
+          "passWithNoTests": true
+        }
+      }
+    },
+    "tags": []
+  }
+  

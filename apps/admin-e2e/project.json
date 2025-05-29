@@ -1,0 +1,17 @@
+{
+    "name": "admin-e2e",
+    "projectType": "e2e",
+    "root": "apps/admin-e2e",
+    "sourceRoot": "apps/admin-e2e/src",
+    "targets": {
+      "e2e": {
+        "executor": "@nx/jest:jest",
+        "options": {
+          "jestConfig": "apps/admin-e2e/jest.config.ts",
+          "passWithNoTests": true
+        }
+      }
+    },
+    "implicitDependencies": ["admin"]
+  }
+  

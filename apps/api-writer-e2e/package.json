@@ -1,0 +1,26 @@
+{
+  "name": "@metrics-platform/api-writer-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "implicitDependencies": [
+      "@metrics-platform/api-writer"
+    ],
+    "targets": {
+      "e2e": {
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{projectRoot}/test-output/jest/coverage"
+        ],
+        "options": {
+          "jestConfig": "api-writer-e2e/jest.config.ts",
+          "passWithNoTests": true
+        },
+        "dependsOn": [
+          "@metrics-platform/api-writer:build",
+          "@metrics-platform/api-writer:serve"
+        ]
+      }
+    }
+  }
+}

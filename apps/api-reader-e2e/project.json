@@ -1,0 +1,17 @@
+{
+    "name": "api-reader-e2e",
+    "projectType": "e2e",
+    "root": "apps/api-reader-e2e",
+    "sourceRoot": "apps/api-reader-e2e/src",
+    "targets": {
+      "e2e": {
+        "executor": "@nx/jest:jest",
+        "options": {
+          "jestConfig": "apps/api-reader-e2e/jest.config.ts",
+          "passWithNoTests": true
+        }
+      }
+    },
+    "implicitDependencies": ["api-reader"]
+  }
+  

@@ -1,0 +1,26 @@
+{
+  "name": "@metrics-platform/processor-worker-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "implicitDependencies": [
+      "@metrics-platform/processor-worker"
+    ],
+    "targets": {
+      "e2e": {
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{projectRoot}/test-output/jest/coverage"
+        ],
+        "options": {
+          "jestConfig": "processor-worker-e2e/jest.config.ts",
+          "passWithNoTests": true
+        },
+        "dependsOn": [
+          "@metrics-platform/processor-worker:build",
+          "@metrics-platform/processor-worker:serve"
+        ]
+      }
+    }
+  }
+}

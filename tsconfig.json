@@ -2,5 +2,42 @@
   "extends": "./tsconfig.base.json",
   "compileOnSave": false,
   "files": [],
-  "references": []
+  "references": [
+    {
+      "path": "./apps/api-writer-e2e"
+    },
+    {
+      "path": "./apps/api-writer"
+    },
+    {
+      "path": "./apps/api-reader-e2e"
+    },
+    {
+      "path": "./apps/api-reader"
+    },
+    {
+      "path": "./apps/processor-worker-e2e"
+    },
+    {
+      "path": "./apps/processor-worker"
+    },
+    {
+      "path": "./apps/admin-e2e"
+    },
+    {
+      "path": "./apps/admin"
+    },
+    {
+      "path": "./libs/core-domain"
+    },
+    {
+      "path": "./libs/core-application"
+    },
+    {
+      "path": "./libs/core-infrastructure"
+    },
+    {
+      "path": "./libs/core-shared"
+    }
+  ]
 }

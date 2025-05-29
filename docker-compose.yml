@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: metrics_password
+      POSTGRES_USER: metrics
+      POSTGRES_DB: metricsdb
+    ports:
+      - '5432:5432'
+  redis:
+    image: redis:7
+    restart: always
+    ports:
+      - '6379:6379'

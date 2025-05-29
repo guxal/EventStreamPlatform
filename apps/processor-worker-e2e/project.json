@@ -1,0 +1,17 @@
+{
+    "name": "processor-worker-e2e",
+    "projectType": "e2e",
+    "root": "apps/processor-worker-e2e",
+    "sourceRoot": "apps/processor-worker-e2e/src",
+    "targets": {
+      "e2e": {
+        "executor": "@nx/jest:jest",
+        "options": {
+          "jestConfig": "apps/processor-worker-e2e/jest.config.ts",
+          "passWithNoTests": true
+        }
+      }
+    },
+    "implicitDependencies": ["processor-worker"]
+  }
+  

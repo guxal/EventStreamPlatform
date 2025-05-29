@@ -1,0 +1,34 @@
+{
+    "name": "core-infrastructure",
+    "projectType": "library",
+    "root": "libs/core-infrastructure",
+    "sourceRoot": "libs/core-infrastructure/src",
+    "targets": {
+      "build": {
+        "executor": "@nx/js:tsc",
+        "options": {
+          "outputPath": "dist/libs/core-infrastructure",
+          "main": "libs/core-infrastructure/src/index.ts",
+          "tsConfig": "libs/core-infrastructure/tsconfig.lib.json"
+        }
+      },
+      "lint": {
+        "executor": "@nx/linter:eslint",
+        "options": {
+          "lintFilePatterns": [
+            "libs/core-infrastructure/**/*.ts"
+          ]
+        }
+      },
+      "test": {
+        "executor": "@nx/jest:jest",
+        "outputs": ["{options.outputPath}"],
+        "options": {
+          "jestConfig": "libs/core-infrastructure/jest.config.ts",
+          "passWithNoTests": true
+        }
+      }
+    },
+    "tags": []
+  }
+  
