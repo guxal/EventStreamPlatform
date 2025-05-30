@@ -11,7 +11,7 @@ swcJestConfig.swcrc = false;
 
 export default {
   displayName: '@metrics-platform/api-writer',
-  preset: '../jest.preset.js',
+  preset: '../../jest.preset.js',
   testEnvironment: 'node',
   transform: {
     '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],

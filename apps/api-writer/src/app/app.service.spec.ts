@@ -1,26 +1,34 @@
-import { Test } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 import { AppService } from './app.service';
+import { CommandBus } from '@nestjs/cqrs';
 
 describe('AppService', () => {
   let service: AppService;
 
   beforeAll(async () => {
-    const app = await Test.createTestingModule({
-      providers: [AppService],
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AppService,
+        {
+          provide: CommandBus,
+          useValue: {
+            execute: jest.fn().mockResolvedValue({ id: '123', eventType: 'TestType' }),
+          },
+        },
+      ],
     }).compile();
 
-    service = app.get<AppService>(AppService);
+    service = module.get<AppService>(AppService);
   });
 
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
-  
+
   it('should handle create event', async () => {
-    const dto = { name: 'Test Event', data: { key: 'value' }, eventType: 'TestType' };
+    const dto = { eventType: 'TestType', userId: 'test-user' };
     const result = await service.handleCreateEvent(dto);
     expect(result).toBeDefined();
-    // Aquí puedes agregar más expectativas según la lógica de tu comando
+    // Puedes agregar más asserts aquí según el mock
   });
-
 });
