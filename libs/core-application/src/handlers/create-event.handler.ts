@@ -2,12 +2,16 @@ import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { CreateEventCommand } from '../commands/create-event.command';
 import { EventRepository } from '@metrics-platform/core-infrastructure';
 import { Event, EventContext, EventProperties } from '@metrics-platform/core-domain';
+import { EventProducerService } from '@metrics-platform/core-infrastructure';
 import { v4 as uuidv4 } from 'uuid';
 
 
 @CommandHandler(CreateEventCommand)
 export class CreateEventHandler implements ICommandHandler<CreateEventCommand> {
-  constructor(private readonly eventsRepository: EventRepository) {}
+  constructor(
+    private readonly eventsRepository: EventRepository,
+    private readonly eventProducer: EventProducerService,
+  ) {}
 
   async execute(command: CreateEventCommand): Promise<Event> {
     // Aquí deberías mapear el DTO a la entidad Event y retornar el resultado,
@@ -47,6 +51,10 @@ export class CreateEventHandler implements ICommandHandler<CreateEventCommand> {
 
     // Aquí llamarías un repositorio para guardar el evento
     await this.eventsRepository.save(eventToSave);
+
+    // Publícalo en la cola
+    await this.eventProducer.publishEvent(eventToSave);
+
     return event;
   }
 }

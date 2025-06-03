@@ -4,6 +4,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { DatabaseModule } from '@metrics-platform/core-infrastructure';
 import { MetricsPlatformCoreApplicationModule } from '@metrics-platform/core-application';
 import { ProcessorService } from './processor.service';
+import { MetricsModule } from '../metrics/metrics.module';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { ProcessorService } from './processor.service';
     ScheduleModule.forRoot(), // Permite jobs programados
     DatabaseModule,
     MetricsPlatformCoreApplicationModule,
+    MetricsModule,
   ],
   providers: [ProcessorService],
 })

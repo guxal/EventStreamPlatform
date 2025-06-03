@@ -1,14 +1,18 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { GetMetricQuery } from '../queries/get-metric.query';
 import { MetricResult } from '@metrics-platform/core-shared';
+import { Inject } from '@nestjs/common';
+import { MetricsRepository } from '@metrics-platform/core-infrastructure'; // ¡Así usas la lib!
 
 @QueryHandler(GetMetricQuery)
 export class GetMetricHandler implements IQueryHandler<GetMetricQuery> {
+  constructor(
+    @Inject(MetricsRepository)
+    private readonly metricsRepository: MetricsRepository
+  ) {}
+
   async execute(query: GetMetricQuery): Promise<MetricResult | null> {
-    // const { metricName, period } = query;
-    // Aquí normalmente llamas al repositorio inyectado:
-    // return await this.metricsRepository.findOneByNameAndPeriod(metricName, period);
-    return null; // Placeholder si no hay repo aún
+    const { metricName, period } = query;
+    return this.metricsRepository.findOneByNameAndPeriod(metricName, period);
   }
 }

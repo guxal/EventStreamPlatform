@@ -4,6 +4,8 @@ import { EventOrmEntity } from './entities/event.orm-entity';
 import { MetricOrmEntity } from './entities/metric.orm-entity';
 import { EventRepository } from './repositories/event.repository';
 import { MetricRepository } from './repositories/metric.repository';
+import { RedisService } from '../redis/redis.service';
+import { MetricsRepository } from './repositories/metrics.repository';
 
 @Module({
   imports: [
@@ -19,7 +21,7 @@ import { MetricRepository } from './repositories/metric.repository';
     }),
     TypeOrmModule.forFeature([EventOrmEntity, MetricOrmEntity]),
   ],
-  providers: [EventRepository, MetricRepository],
-  exports: [EventRepository, MetricRepository],
+  providers: [EventRepository, MetricRepository, MetricsRepository, RedisService],
+  exports: [EventRepository, MetricRepository, MetricsRepository, RedisService],
 })
 export class DatabaseModule {}
