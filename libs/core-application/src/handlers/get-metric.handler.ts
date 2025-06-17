@@ -1,18 +1,18 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { GetMetricQuery } from '../queries/get-metric.query';
-import { MetricResult } from '@metrics-platform/core-shared';
-import { Inject } from '@nestjs/common';
-import { MetricsRepository } from '@metrics-platform/core-infrastructure'; // ¡Así usas la lib!
+import { MetricDispatcherService } from '../services/metric-dispatcher.service';
 
 @QueryHandler(GetMetricQuery)
 export class GetMetricHandler implements IQueryHandler<GetMetricQuery> {
-  constructor(
-    @Inject(MetricsRepository)
-    private readonly metricsRepository: MetricsRepository
-  ) {}
+  constructor(private readonly dispatcher: MetricDispatcherService) {}
 
-  async execute(query: GetMetricQuery): Promise<MetricResult | null> {
-    const { metricName, period } = query;
-    return this.metricsRepository.findOneByNameAndPeriod(metricName, period);
+  async execute(query: GetMetricQuery) {
+    // Ensure metricName is a valid key of metricsRegistry
+    // This cast is safe if metricName is validated elsewhere or comes from a trusted source
+    return this.dispatcher.dispatch(
+      query.metricName as keyof typeof import('../plugins/plugins.registry').metricsRegistry,
+      query.period,
+      query.store || 'db'
+    );
   }
 }

@@ -8,6 +8,7 @@ import { GetMetricHandler } from '../handlers/get-metric.handler';
 import { ListMetricsHandler } from '../handlers/list-metrics.handler';
 import { DatabaseModule } from '@metrics-platform/core-infrastructure';
 import { QueueModule } from '@metrics-platform/core-infrastructure';
+import { MetricDispatcherService } from '../services/metric-dispatcher.service';
 // ...otros handlers según tus archivos
 
 const CommandHandlers = [
@@ -24,7 +25,7 @@ const QueryHandlers = [
 
 @Module({
   imports: [CqrsModule, DatabaseModule, QueueModule],
-  providers: [...CommandHandlers, ...QueryHandlers],
-  exports: [...CommandHandlers, ...QueryHandlers],
+  providers: [...CommandHandlers, ...QueryHandlers, MetricDispatcherService],
+  exports: [...CommandHandlers, ...QueryHandlers, MetricDispatcherService],
 })
 export class MetricsPlatformCoreApplicationModule {}

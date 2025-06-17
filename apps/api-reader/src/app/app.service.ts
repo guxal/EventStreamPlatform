@@ -6,8 +6,8 @@ import { GetMetricQuery, ListMetricsQuery } from '@metrics-platform/core-applica
 export class AppService {
   constructor(private readonly queryBus: QueryBus) {}
 
-  async handleGetMetric(metricName: string, period: string) {
-    return this.queryBus.execute(new GetMetricQuery(metricName, period));
+  async handleGetMetric(metricName: string, period: string, store: 'db' | 'redis' = 'db') {
+    return this.queryBus.execute(new GetMetricQuery(metricName, period, store));
   }
 
   async handleListMetrics(metricName?: string, fromPeriod?: string, toPeriod?: string) {

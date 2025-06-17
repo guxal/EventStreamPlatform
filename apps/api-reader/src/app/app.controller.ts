@@ -10,8 +10,9 @@ export class AppController {
   async getMetric(
     @Param('metricName') metricName: string,
     @Query('period') period: string,
+    @Query('store') store: 'db' | 'redis' = 'db', // Default to 'db'
   ) {
-    return this.appService.handleGetMetric(metricName, period);
+    return this.appService.handleGetMetric(metricName, period, store);
   }
 
   // GET /metrics?metricName=DAU&fromPeriod=2025-05-01&toPeriod=2025-05-27

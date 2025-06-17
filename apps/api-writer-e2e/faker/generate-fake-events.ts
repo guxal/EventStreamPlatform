@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { faker } from '@faker-js/faker';
 
-const API_URL = 'http://localhost:3000/api/events';
+const API_URL = 'http://localhost:3001/api/events';
 
 async function sendFakeEvent() {
   const event = {

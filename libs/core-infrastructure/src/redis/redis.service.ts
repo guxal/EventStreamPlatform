@@ -36,5 +36,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   async expire(key: string, seconds: number) {
     return this.client.expire(key, seconds);
   }
+  async scard(key: string): Promise<number> {
+    return this.client.sCard(key);
+  }
   // ...Agrega más métodos según tu necesidad
 }
