@@ -1,90 +1,150 @@
-# MetricsPlatform
+# EventStream Platform
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+A modular platform for event ingestion, storage, and analysis.  
+**Built for scalability, extensibility, and real-world observability scenarios.**
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is almost ready ✨.
+> **Note:** This repository contains the open-source core only.  
+> Metric plugins, advanced analytics, and enterprise modules are handled in separate packages.
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/nx-api/js?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+---
 
-## Finish your CI setup
+## Features
 
-[Click here to finish setting up your workspace!](https://cloud.nx.app/connect/sBClugfMeP)
+- **Event API ingestion** – Easily send user, system, or custom events from any client.
+- **Scalable architecture** – Built on NestJS, PostgreSQL, Redis, and a modular plugin system.
+- **Batch & real-time processing** – Supports both real-time (queue-based) and batch (cron-based) event processing.
+- **Plugin-ready** – Add your own event processors, aggregations, or integrations.
+- **API for querying** – Expose simple endpoints to fetch raw or processed event data.
+- **Tested and load-testable** – Scripts included to simulate high-throughput scenarios.
+
+---
+
+## Monorepo Structure
+
+- `apps/api-writer` – HTTP API to ingest events into the platform.
+- `apps/processor-worker` – Processes events (real-time or batch), runs plugins.
+- `apps/api-reader` – Exposes an API to query processed data.
+- `libs/core-shared` – DTOs, types, and utilities shared across modules.
+- `libs/core-infrastructure` – PostgreSQL, Redis, and queue connection logic.
+- `libs/core-application` – Core business logic and plugin system.
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 20+
+- Docker (for PostgreSQL & Redis, or use local installations)
+
+### Setup
+
+1. **Clone the repo**
+
+   ```sh
+   git clone https://github.com/your-org/eventstream-platform.git
+   cd eventstream-platform
+    ```
+
+2. **Install dependencies**
+
+    ```sh
+    npm install
+    ```
+
+3. **Start dependencies (Postgres, Redis)**
+
+    ```sh
+    docker-compose up -d
+    ```
 
 
-## Generate a library
+4. **Start all services (in parallel)**
+
+    ```sh
+    nx run-many --target=serve --projects=api-writer,api-reader,processor-worker
+    --parallel
+    ```
+    
+
+5. **Send a test event**
+
+    You can use `curl` or any HTTP client to send a test event to the API:
+
+    ```sh
+    curl -X POST http://localhost:3001/api/events \
+      -H "Content-Type: application/json" \
+      -d '{"eventType":"TestType","userId":"test","timestamp":"2024-01-01T00:00:00Z","properties":{"score":1}}'
+    ```
+
+## Development
+
+**Hot reload:**
+
+### Each app can be served individually, e.g.:
 
 ```sh
-npx nx g @nx/js:lib packages/pkg1 --publishable --importPath=@my-org/pkg1
+nx serve api-writer
+nx serve api-reader
+nx serve processor-worker
 ```
 
-## Run tasks
-
-To build the library use:
+### Build all:
 
 ```sh
-npx nx build pkg1
+nx run-many --target=build --all
 ```
 
-To run any task with Nx use:
+### Test (unit):
 
 ```sh
-npx nx <target> <project-name>
+nx test api-writer
 ```
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
-
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Versioning and releasing
-
-To version and release the library use
-
-```
-npx nx release
-```
-
-Pass `--dry-run` to see what would happen without actually releasing the library.
-
-[Learn more about Nx release &raquo;](hhttps://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Keep TypeScript project references up to date
-
-Nx automatically updates TypeScript [project references](https://www.typescriptlang.org/docs/handbook/project-references.html) in `tsconfig.json` files to ensure they remain accurate based on your project dependencies (`import` or `require` statements). This sync is automatically done when running tasks such as `build` or `typecheck`, which require updated references to function correctly.
-
-To manually trigger the process to sync the project graph dependencies information to the TypeScript project references, run the following command:
+### End-to-end tests:
 
 ```sh
-npx nx sync
+nx e2e api-writer-e2e
 ```
 
-You can enforce that the TypeScript project references are always in the correct state when running in CI by adding a step to your CI job configuration that runs the following command:
+## Load testing:
+
+
+To simulate high load and test the API's performance, you can use the included load testing scripts.
+
+
+Use autocannon or the included scripts:
 
 ```sh
-npx nx sync:check
+npx autocannon -c 100 -d 30 -p 10 http://localhost:3001/api/events \
+  -m POST \
+  -b '{"eventType":"TestType","userId":"test","timestamp":"2024-01-01T00:00:00Z","properties":{"score":1}}' \
+  -H "Content-Type: application/json"
 ```
 
-[Learn more about nx sync](https://nx.dev/reference/nx-commands#sync)
+## Faker events:
 
+```sh
+npx ts-node ./faker/generate-fake-events.ts
+```
 
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## Example Use Cases
 
-## Install Nx Console
+- Application analytics and behavior tracking.
 
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
+- Audit trails, system activity logs, and security event pipelines.
 
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+- Custom event-driven pipelines (webhooks, triggers, alerting).
 
-## Useful links
+- Can be extended for product analytics or business metric calculation via plugins.
 
-Learn more:
+## Contribution
+Contributions are welcome!
 
-- [Learn more about this workspace setup](https://nx.dev/nx-api/js?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+File issues or pull requests for bugs, ideas, or improvements.
 
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+See the code structure in ````libs/```` and ````apps/````.
+
+## License
+MIT
+(c) 2025 Your Company or Community
