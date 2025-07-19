@@ -4,8 +4,10 @@ import { EventOrmEntity } from './entities/event.orm-entity';
 import { MetricOrmEntity } from './entities/metric.orm-entity';
 import { EventRepository } from './repositories/event.repository';
 import { MetricRepository } from './repositories/metric.repository';
+import { DynamicMetricRepository } from './repositories/dynamic-metric.repository';
 import { RedisService } from '../redis/redis.service';
 import { MetricsRepository } from './repositories/metrics.repository';
+import { DynamicMetricOrmEntity } from './entities/dynamic-metric.orm-entity';
 
 @Module({
   imports: [
@@ -19,9 +21,9 @@ import { MetricsRepository } from './repositories/metrics.repository';
       autoLoadEntities: true,
       synchronize: true, // ¡Quita esto en producción!
     }),
-    TypeOrmModule.forFeature([EventOrmEntity, MetricOrmEntity]),
+    TypeOrmModule.forFeature([EventOrmEntity, MetricOrmEntity, DynamicMetricOrmEntity]),
   ],
-  providers: [EventRepository, MetricRepository, MetricsRepository, RedisService],
-  exports: [EventRepository, MetricRepository, MetricsRepository, RedisService],
+  providers: [EventRepository, MetricRepository, DynamicMetricRepository, MetricsRepository, RedisService],
+  exports: [EventRepository, MetricRepository, DynamicMetricRepository, MetricsRepository, RedisService],
 })
 export class DatabaseModule {}

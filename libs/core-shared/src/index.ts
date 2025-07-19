@@ -1,5 +1,6 @@
 export * from './dto/create-event.dto';
 export * from './dto/create-metric.dto';
+export * from './dto/dynamic-metric.dto';
 
 export * from './interfaces/event-payload.interface';
 export * from './interfaces/metric-result.interface';
