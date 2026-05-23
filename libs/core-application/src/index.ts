@@ -16,5 +16,7 @@ export * from './events/metric-calculated.event';
 
 export * from './use-cases/calculate-metrics.use-case';
 
+export * from './services/dynamic-metric-query.service';
+
 
 export * from './lib/core-application.module';
