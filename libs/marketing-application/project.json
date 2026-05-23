@@ -1,0 +1,31 @@
+{
+  "name": "marketing-application",
+  "projectType": "library",
+  "root": "libs/marketing-application",
+  "sourceRoot": "libs/marketing-application/src",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "outputPath": "dist/libs/marketing-application",
+        "main": "libs/marketing-application/src/index.ts",
+        "tsConfig": "libs/marketing-application/tsconfig.lib.json"
+      }
+    },
+    "lint": {
+      "executor": "@nx/linter:eslint",
+      "options": {
+        "lintFilePatterns": ["libs/marketing-application/**/*.ts"]
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "jestConfig": "libs/marketing-application/jest.config.ts",
+        "passWithNoTests": true
+      }
+    }
+  },
+  "tags": []
+}

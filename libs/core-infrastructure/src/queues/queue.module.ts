@@ -12,6 +12,7 @@ import { EventProducerService } from './event-producer.service';
       },
     }),
     BullModule.registerQueue({ name: 'events' }),
+    BullModule.registerQueue({ name: 'marketing-imports' }),
   ],
   providers: [EventProducerService],
   exports: [EventProducerService],
