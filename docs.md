@@ -146,3 +146,5 @@ Definir los primeros endpoints y DTOs.
 Modelar los primeros jobs de procesamiento.
 
 Definir tablas base en la base de datos para eventos y métricas.
+
+> Implementation guide moved to AGENTS.md (canonical for future AI/code agents).

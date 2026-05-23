@@ -1,0 +1,31 @@
+{
+  "name": "marketing-infrastructure",
+  "projectType": "library",
+  "root": "libs/marketing-infrastructure",
+  "sourceRoot": "libs/marketing-infrastructure/src",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "outputPath": "dist/libs/marketing-infrastructure",
+        "main": "libs/marketing-infrastructure/src/index.ts",
+        "tsConfig": "libs/marketing-infrastructure/tsconfig.lib.json"
+      }
+    },
+    "lint": {
+      "executor": "@nx/linter:eslint",
+      "options": {
+        "lintFilePatterns": ["libs/marketing-infrastructure/**/*.ts"]
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "jestConfig": "libs/marketing-infrastructure/jest.config.ts",
+        "passWithNoTests": true
+      }
+    }
+  },
+  "tags": []
+}

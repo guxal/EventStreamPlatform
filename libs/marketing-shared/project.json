@@ -1,0 +1,31 @@
+{
+  "name": "marketing-shared",
+  "projectType": "library",
+  "root": "libs/marketing-shared",
+  "sourceRoot": "libs/marketing-shared/src",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "outputPath": "dist/libs/marketing-shared",
+        "main": "libs/marketing-shared/src/index.ts",
+        "tsConfig": "libs/marketing-shared/tsconfig.lib.json"
+      }
+    },
+    "lint": {
+      "executor": "@nx/linter:eslint",
+      "options": {
+        "lintFilePatterns": ["libs/marketing-shared/**/*.ts"]
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "jestConfig": "libs/marketing-shared/jest.config.ts",
+        "passWithNoTests": true
+      }
+    }
+  },
+  "tags": []
+}
