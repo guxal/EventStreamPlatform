@@ -1,26 +1,38 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Queue } from 'bullmq';
 
 @Injectable()
 export class EventProducerService implements OnModuleInit, OnModuleDestroy {
-  // Using definite assignment assertion (!) because client is initialized in onModuleInit()
   public eventQueue!: Queue;
+  public marketingImportsQueue!: Queue;
 
   onModuleInit() {
-    this.eventQueue = new Queue('events', {
-      connection: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: Number(process.env.REDIS_PORT) || 6379,
-        // password, db, etc si usas más configs
-      },
-    });
+    const connection = {
+      host: process.env.REDIS_HOST || 'localhost',
+      port: Number(process.env.REDIS_PORT) || 6379,
+    };
+
+    this.eventQueue = new Queue('events', { connection });
+    this.marketingImportsQueue = new Queue('marketing-imports', { connection });
   }
 
   async onModuleDestroy() {
-    await this.eventQueue.close();
+    await Promise.all([this.eventQueue.close(), this.marketingImportsQueue.close()]);
   }
 
-  async publishEvent(data: any) {
-    await this.eventQueue.add('event', data); // 'event' es el nombre del job/type
+  async publishEvent(data: unknown) {
+    await this.eventQueue.add('event', data);
+  }
+
+  async publishMarketingImport(data: unknown) {
+    await this.marketingImportsQueue.add('process-marketing-import', data, {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 2000,
+      },
+      removeOnComplete: 1000,
+      removeOnFail: 5000,
+    });
   }
 }

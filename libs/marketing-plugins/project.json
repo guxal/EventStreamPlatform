@@ -1,0 +1,31 @@
+{
+  "name": "marketing-plugins",
+  "projectType": "library",
+  "root": "libs/marketing-plugins",
+  "sourceRoot": "libs/marketing-plugins/src",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "outputPath": "dist/libs/marketing-plugins",
+        "main": "libs/marketing-plugins/src/index.ts",
+        "tsConfig": "libs/marketing-plugins/tsconfig.lib.json"
+      }
+    },
+    "lint": {
+      "executor": "@nx/linter:eslint",
+      "options": {
+        "lintFilePatterns": ["libs/marketing-plugins/**/*.ts"]
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "jestConfig": "libs/marketing-plugins/jest.config.ts",
+        "passWithNoTests": true
+      }
+    }
+  },
+  "tags": []
+}
