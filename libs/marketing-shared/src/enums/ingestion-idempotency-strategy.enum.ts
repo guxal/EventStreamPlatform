@@ -1,0 +1,4 @@
+export enum IngestionIdempotencyStrategy {
+  IMPORT_REPLACE = 'IMPORT_REPLACE',
+  REPLACING_MERGETREE_FINAL = 'REPLACING_MERGETREE_FINAL',
+}
