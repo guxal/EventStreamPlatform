@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { mkdir, writeFile } from 'fs/promises';
+import { createReadStream } from 'fs';
+import { mkdir, stat, writeFile } from 'fs/promises';
 import { dirname, join } from 'path';
+import type { Readable } from 'stream';
 
 export type PutObjectInput = {
   bucketName: string;
@@ -8,11 +10,17 @@ export type PutObjectInput = {
   contentBase64: string;
 };
 
+export type GetObjectStreamInput = {
+  bucketName: string;
+  objectKey: string;
+};
+
 @Injectable()
 export class ObjectStorageService {
+  private readonly rootDir = process.env.MARKETING_OBJECT_STORAGE_ROOT || '/tmp/marketing-object-storage';
+
   async putObject(input: PutObjectInput): Promise<{ uri: string; sizeBytes: number }> {
-    const rootDir = process.env.MARKETING_OBJECT_STORAGE_ROOT || '/tmp/marketing-object-storage';
-    const fullPath = join(rootDir, input.bucketName, input.objectKey);
+    const fullPath = this.resolvePath(input.bucketName, input.objectKey);
     const binary = Buffer.from(input.contentBase64, 'base64');
 
     await mkdir(dirname(fullPath), { recursive: true });
@@ -22,5 +30,20 @@ export class ObjectStorageService {
       uri: `file://${fullPath}`,
       sizeBytes: binary.byteLength,
     };
+  }
+
+  async getObjectStream(input: GetObjectStreamInput): Promise<{ stream: Readable; sizeBytes: number; uri: string }> {
+    const fullPath = this.resolvePath(input.bucketName, input.objectKey);
+    const metadata = await stat(fullPath);
+
+    return {
+      stream: createReadStream(fullPath),
+      sizeBytes: metadata.size,
+      uri: `file://${fullPath}`,
+    };
+  }
+
+  private resolvePath(bucketName: string, objectKey: string): string {
+    return join(this.rootDir, bucketName, objectKey);
   }
 }

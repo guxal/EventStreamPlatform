@@ -16,6 +16,8 @@ export type DataImportRecord = {
   objectKey: string;
   status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
   createdAt: string;
+  sizeBytes?: number;
+  storageUri?: string;
 };
 
 export type CreateProjectPayload = {

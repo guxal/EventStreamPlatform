@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AppService } from './app.service';
 import { CommandBus } from '@nestjs/cqrs';
+import { EventProducerService } from '@metrics-platform/core-infrastructure';
+import { FileHubService } from '@metrics-platform/marketing-application';
+import { ObjectStorageService, ProjectRepository } from '@metrics-platform/marketing-infrastructure';
+import { AppService } from './app.service';
 
 describe('AppService', () => {
   let service: AppService;
@@ -13,6 +16,28 @@ describe('AppService', () => {
           provide: CommandBus,
           useValue: {
             execute: jest.fn().mockResolvedValue({ id: '123', eventType: 'TestType' }),
+          },
+        },
+        {
+          provide: EventProducerService,
+          useValue: { publishMarketingImport: jest.fn() },
+        },
+        {
+          provide: ObjectStorageService,
+          useValue: { putObject: jest.fn() },
+        },
+        {
+          provide: ProjectRepository,
+          useValue: { create: jest.fn(), list: jest.fn(), exists: jest.fn() },
+        },
+        {
+          provide: FileHubService,
+          useValue: {
+            uploadFile: jest.fn(),
+            listFiles: jest.fn(),
+            getFile: jest.fn(),
+            updateTags: jest.fn(),
+            requestProcessing: jest.fn(),
           },
         },
       ],
@@ -29,6 +54,5 @@ describe('AppService', () => {
     const dto = { eventType: 'TestType', userId: 'test-user' };
     const result = await service.handleCreateEvent(dto);
     expect(result).toBeDefined();
-    // Puedes agregar más asserts aquí según el mock
   });
 });
