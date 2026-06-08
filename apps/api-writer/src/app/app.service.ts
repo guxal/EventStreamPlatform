@@ -2,47 +2,51 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { randomUUID } from 'crypto';
 import { EventProducerService } from '@metrics-platform/core-infrastructure';
+import { ProjectRepository } from '@metrics-platform/marketing-infrastructure';
+import { FileHubService } from '@metrics-platform/marketing-application';
 import { ObjectStorageService } from '@metrics-platform/marketing-infrastructure';
 import { CreateEventCommand } from '@metrics-platform/core-application';
 import { CreateEventDto } from '@metrics-platform/core-shared';
+import type {
+  CreateRawFilePayload,
+  FileHubListFilters,
+  UpdateRawFileTagsPayload,
+} from '@metrics-platform/marketing-shared';
 import type { CreateImportPayload, CreateProjectPayload, DataImportRecord, ProjectRecord } from './projects.types';
 
 @Injectable()
 export class AppService {
-  private readonly projects = new Map<string, ProjectRecord>();
   private readonly imports = new Map<string, DataImportRecord[]>();
 
   constructor(
     private readonly commandBus: CommandBus,
     private readonly eventProducerService: EventProducerService,
     private readonly objectStorageService: ObjectStorageService,
+    private readonly projectRepository: ProjectRepository,
+    private readonly fileHubService: FileHubService,
   ) {}
 
   async handleCreateEvent(dto: CreateEventDto) {
     return this.commandBus.execute(new CreateEventCommand(dto));
   }
 
-  createProject(payload: CreateProjectPayload): ProjectRecord {
-    const project: ProjectRecord = {
+  async createProject(payload: CreateProjectPayload): Promise<ProjectRecord> {
+    return this.projectRepository.create({
       id: randomUUID(),
       name: payload.name,
       description: payload.description,
       defaultCurrency: payload.defaultCurrency ?? 'USD',
       timezone: payload.timezone ?? 'UTC',
-      createdAt: new Date().toISOString(),
-    };
-
-    this.projects.set(project.id, project);
-    return project;
+    });
   }
 
-  listProjects(): ProjectRecord[] {
-    return Array.from(this.projects.values());
+  async listProjects(): Promise<ProjectRecord[]> {
+    return this.projectRepository.list();
   }
 
   async createProjectImport(projectId: string, payload: CreateImportPayload): Promise<DataImportRecord> {
-    const project = this.projects.get(projectId);
-    if (!project) {
+    const projectExists = await this.projectRepository.exists(projectId);
+    if (!projectExists) {
       throw new NotFoundException(`Project ${projectId} not found`);
     }
 
@@ -88,12 +92,32 @@ export class AppService {
     return dataImport;
   }
 
-  listProjectImports(projectId: string): DataImportRecord[] {
-    const project = this.projects.get(projectId);
-    if (!project) {
+  async listProjectImports(projectId: string): Promise<DataImportRecord[]> {
+    const projectExists = await this.projectRepository.exists(projectId);
+    if (!projectExists) {
       throw new NotFoundException(`Project ${projectId} not found`);
     }
 
     return this.imports.get(projectId) ?? [];
+  }
+
+  uploadProjectFile(projectId: string, payload: CreateRawFilePayload) {
+    return this.fileHubService.uploadFile(projectId, payload);
+  }
+
+  listProjectFiles(projectId: string, filters: FileHubListFilters) {
+    return this.fileHubService.listFiles(projectId, filters);
+  }
+
+  getProjectFile(projectId: string, fileId: string) {
+    return this.fileHubService.getFile(projectId, fileId);
+  }
+
+  updateProjectFileTags(projectId: string, fileId: string, payload: UpdateRawFileTagsPayload) {
+    return this.fileHubService.updateTags(projectId, fileId, payload);
+  }
+
+  processProjectFile(projectId: string, fileId: string) {
+    return this.fileHubService.requestProcessing(projectId, fileId, 'api-writer');
   }
 }

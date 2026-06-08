@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Headers, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import { CreateEventDto } from '@metrics-platform/core-shared';
 import { AppService } from './app.service';
 import { ApiBody, ApiHeader, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import type { CreateImportPayload, CreateProjectPayload } from './projects.types';
+import type { CreateRawFilePayload, FileHubListFilters, UpdateRawFileTagsPayload } from '@metrics-platform/marketing-shared';
 
 @ApiTags('events')
 @Controller()
@@ -78,6 +79,69 @@ export class AppController {
   })
   createProjectImport(@Param('id') projectId: string, @Body() payload: CreateImportPayload) {
     return this.appService.createProjectImport(projectId, payload);
+  }
+
+
+  @Post('projects/:id/files')
+  @ApiTags('file-hub')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['fileName', 'contentBase64'],
+      properties: {
+        fileName: { type: 'string' },
+        contentBase64: { type: 'string' },
+        mimeType: { type: 'string', default: 'text/csv' },
+        tags: { type: 'object' },
+      },
+    },
+  })
+  uploadProjectFile(@Param('id') projectId: string, @Body() payload: CreateRawFilePayload) {
+    return this.appService.uploadProjectFile(projectId, payload);
+  }
+
+  @Get('projects/:id/files')
+  @ApiTags('file-hub')
+  listProjectFiles(
+    @Param('id') projectId: string,
+    @Query('status') status?: FileHubListFilters['status'],
+    @Query('source') source?: FileHubListFilters['source'],
+    @Query('report_type') reportType?: FileHubListFilters['reportType'],
+  ) {
+    return this.appService.listProjectFiles(projectId, { status, source, reportType });
+  }
+
+  @Get('projects/:id/files/:fileId')
+  @ApiTags('file-hub')
+  getProjectFile(@Param('id') projectId: string, @Param('fileId') fileId: string) {
+    return this.appService.getProjectFile(projectId, fileId);
+  }
+
+  @Patch('projects/:id/files/:fileId/tags')
+  @ApiTags('file-hub')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['source', 'report_type'],
+      properties: {
+        source: { type: 'string' },
+        report_type: { type: 'string' },
+        tags: { type: 'object' },
+      },
+    },
+  })
+  updateProjectFileTags(
+    @Param('id') projectId: string,
+    @Param('fileId') fileId: string,
+    @Body() payload: UpdateRawFileTagsPayload,
+  ) {
+    return this.appService.updateProjectFileTags(projectId, fileId, payload);
+  }
+
+  @Post('projects/:id/files/:fileId/process')
+  @ApiTags('file-hub')
+  processProjectFile(@Param('id') projectId: string, @Param('fileId') fileId: string) {
+    return this.appService.processProjectFile(projectId, fileId);
   }
 
   @Get('projects/:id/imports')

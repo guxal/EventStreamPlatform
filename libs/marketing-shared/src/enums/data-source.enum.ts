@@ -1,0 +1,6 @@
+export enum DataSource {
+  APPSFLYER = 'APPSFLYER',
+  GOOGLE_ADS = 'GOOGLE_ADS',
+  META_ADS = 'META_ADS',
+  UNKNOWN = 'UNKNOWN',
+}
