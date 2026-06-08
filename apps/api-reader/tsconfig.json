@@ -4,6 +4,9 @@
   "include": [],
   "references": [
     {
+      "path": "../../libs/marketing-shared"
+    },
+    {
       "path": "../../libs/core-application"
     },
     {

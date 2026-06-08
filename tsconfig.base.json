@@ -25,6 +25,9 @@
       ],
       "@metrics-platform/marketing-plugins": [
         "libs/marketing-plugins/src/index.ts"
+      ],
+      "@metrics-platform/marketing-shared": [
+        "libs/marketing-shared/src/index.ts"
       ]
     },
     "declarationMap": true,

@@ -53,10 +53,10 @@
     "libs/core-application",
     "libs/core-infrastructure",
     "libs/core-shared",
-    "libs/marketing-shared",
     "libs/marketing-application",
     "libs/marketing-infrastructure",
-    "libs/marketing-plugins"
+    "libs/marketing-plugins",
+    "libs/marketing-shared"
   ],
   "dependencies": {
     "@nestjs/bull": "^11.0.2",
