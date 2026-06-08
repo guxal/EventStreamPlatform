@@ -9,7 +9,19 @@
       "@metrics-platform/core-infrastructure": [
         "libs/core-infrastructure/src/index.ts"
       ],
-      "@metrics-platform/core-shared": ["libs/core-shared/src/index.ts"]
+      "@metrics-platform/core-shared": ["libs/core-shared/src/index.ts"],
+      "@metrics-platform/marketing-application": [
+        "libs/marketing-application/src/index.ts"
+      ],
+      "@metrics-platform/marketing-infrastructure": [
+        "libs/marketing-infrastructure/src/index.ts"
+      ],
+      "@metrics-platform/marketing-plugins": [
+        "libs/marketing-plugins/src/index.ts"
+      ],
+      "@metrics-platform/marketing-shared": [
+        "libs/marketing-shared/src/index.ts"
+      ]
     },
     "declarationMap": true,
     "emitDeclarationOnly": false,

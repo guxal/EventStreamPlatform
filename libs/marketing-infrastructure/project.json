@@ -3,6 +3,7 @@
   "projectType": "library",
   "root": "libs/marketing-infrastructure",
   "sourceRoot": "libs/marketing-infrastructure/src",
+  "implicitDependencies": ["marketing-shared"],
   "targets": {
     "build": {
       "executor": "@nx/js:tsc",

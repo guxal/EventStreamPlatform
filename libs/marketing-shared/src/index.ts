@@ -9,6 +9,7 @@ export * from './enums/canonical-event-type.enum';
 export * from './enums/ingestion-idempotency-strategy.enum';
 
 export * from './types/temporal-context.type';
+export * from './types/ai-output.types';
 
 export * from './contracts/detected-fact.contract';
 export * from './contracts/analysis-plugin.contract';

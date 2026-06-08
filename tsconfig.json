@@ -38,6 +38,18 @@
     },
     {
       "path": "./libs/core-shared"
+    },
+    {
+      "path": "./libs/marketing-infrastructure"
+    },
+    {
+      "path": "./libs/marketing-application"
+    },
+    {
+      "path": "./libs/marketing-plugins"
+    },
+    {
+      "path": "./libs/marketing-shared"
     }
   ]
 }

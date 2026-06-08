@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { RecommendationRecord } from '@metrics-platform/marketing-application';
+import type { RecommendationRecord } from '@metrics-platform/marketing-shared';
 
 @Injectable()
 export class RecommendationRepository {
