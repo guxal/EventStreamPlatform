@@ -10,9 +10,13 @@ async function bootstrap() {
 
   // --- SWAGGER CONFIG ---
   const config = new DocumentBuilder()
-    .setTitle('API Writer')
-    .setDescription('API para recepción de eventos')
+    .setTitle('EventStream Platform API Writer')
+    .setDescription('Write-side API for EventStream events and AI Marketing Copilot project/import/File Hub operations.')
     .setVersion('1.0')
+    .addTag('events', 'EventStream core event ingestion')
+    .addTag('projects', 'AI Marketing Copilot project management')
+    .addTag('imports', 'Legacy marketing import endpoints')
+    .addTag('file-hub', 'Bronze Layer File Hub: raw CSV upload, profiling, classification, manual tagging, and queue trigger')
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup(`${globalPrefix}/docs`, app, document);
