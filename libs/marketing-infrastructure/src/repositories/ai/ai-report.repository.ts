@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { AiReportRecord } from '@metrics-platform/marketing-application';
+import type { AiReportRecord } from '@metrics-platform/marketing-shared';
 
 @Injectable()
 export class AiReportRepository {

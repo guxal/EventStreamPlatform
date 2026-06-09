@@ -164,7 +164,6 @@ export class AppController {
 
   @Get('projects/:id/files')
   @ApiTags('file-hub')
-  @ApiOperation({ summary: 'List File Hub files for a project' })
   listProjectFiles(
     @Param('id') projectId: string,
     @Query('status') status?: FileHubListFilters['status'],

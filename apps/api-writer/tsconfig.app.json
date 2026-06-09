@@ -22,6 +22,9 @@
   ],
   "references": [
     {
+      "path": "../../libs/marketing-infrastructure/tsconfig.lib.json"
+    },
+    {
       "path": "../../libs/core-application/tsconfig.lib.json"
     },
     {

@@ -33,7 +33,11 @@
         "libs/core-domain/*",
         "libs/core-application/*",
         "libs/core-infrastructure/*",
-        "libs/core-shared/*"
+        "libs/core-shared/*",
+        "libs/marketing-application/*",
+        "libs/marketing-infrastructure/*",
+        "libs/marketing-plugins/*",
+        "libs/marketing-shared/*"
       ]
     },
     {
@@ -70,7 +74,11 @@
         "libs/core-domain/*",
         "libs/core-application/*",
         "libs/core-infrastructure/*",
-        "libs/core-shared/*"
+        "libs/core-shared/*",
+        "libs/marketing-application/*",
+        "libs/marketing-infrastructure/*",
+        "libs/marketing-plugins/*",
+        "libs/marketing-shared/*"
       ],
       "options": {
         "typecheck": {
