@@ -33,3 +33,11 @@ npx autocannon -c 100 -d 30 -p 10 http://localhost:3001/api/events \
 
 
 npx ts-node ./faker/generate-fake-events.ts
+
+
+// run migrations filehub
+docker exec -i metrics-platform-postgres-1 psql -U metrics -d metricsdb \
+  < apps/processor-worker/src/database/migrations/004_create_marketing_core_tables.sql
+
+docker exec -i metrics-platform-postgres-1 psql -U metrics -d metricsdb \
+  < apps/processor-worker/src/database/migrations/005_extend_raw_import_files_for_file_hub.sql

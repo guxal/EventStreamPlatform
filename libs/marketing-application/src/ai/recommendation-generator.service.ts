@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import type { DetectedFact } from '@metrics-platform/marketing-shared';
+import type { DetectedFact, FactType } from '@metrics-platform/marketing-shared';
 
 export type GeneratedRecommendation = {
   title: string;
   body: string;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  factType: string;
+  factType: FactType;
 };
 
 @Injectable()

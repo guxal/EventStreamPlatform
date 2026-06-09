@@ -4,6 +4,9 @@
   "include": [],
   "references": [
     {
+      "path": "../core-infrastructure"
+    },
+    {
       "path": "../marketing-infrastructure"
     },
     {

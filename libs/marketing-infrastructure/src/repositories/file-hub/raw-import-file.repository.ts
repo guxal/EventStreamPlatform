@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource as TypeOrmDataSource } from 'typeorm';
+import { firstQueryRow, unwrapQueryRows } from '../../database/typeorm-query.util';
 import {
   DataSource,
   RawFileStatus,
@@ -86,7 +87,7 @@ export class RawImportFileRepository {
       ],
     );
 
-    return this.toRecord(rows[0]);
+    return this.toRecord(firstQueryRow(rows));
   }
 
   async findByProjectAndId(projectId: string, fileId: string): Promise<RawImportFileRecord | null> {
@@ -94,7 +95,8 @@ export class RawImportFileRepository {
       'SELECT * FROM raw_import_files WHERE project_id = $1 AND id = $2 LIMIT 1',
       [projectId, fileId],
     );
-    return rows[0] ? this.toRecord(rows[0]) : null;
+    const record = unwrapQueryRows<Record<string, unknown>>(rows)[0];
+    return record ? this.toRecord(record) : null;
   }
 
   async listByProject(projectId: string, filters: FileHubListFilters = {}): Promise<RawImportFileRecord[]> {
@@ -121,7 +123,7 @@ export class RawImportFileRepository {
       params,
     );
 
-    return rows.map((row: Record<string, unknown>) => this.toRecord(row));
+    return unwrapQueryRows<Record<string, unknown>>(rows).map((row) => this.toRecord(row));
   }
 
   async updateStatus(projectId: string, fileId: string, status: RawFileStatus): Promise<RawImportFileRecord> {
@@ -132,7 +134,7 @@ export class RawImportFileRepository {
        RETURNING *`,
       [projectId, fileId, status],
     );
-    return this.toRecord(rows[0]);
+    return this.toRecord(firstQueryRow(rows));
   }
 
   async updateProfile(projectId: string, fileId: string, input: UpdateRawImportFileProfileInput): Promise<RawImportFileRecord> {
@@ -148,7 +150,7 @@ export class RawImportFileRepository {
        RETURNING *`,
       [projectId, fileId, input.checksum, input.rowCount, JSON.stringify(input.headers), JSON.stringify(input.sampleRows), input.status],
     );
-    return this.toRecord(rows[0]);
+    return this.toRecord(firstQueryRow(rows));
   }
 
   async updateClassification(
@@ -178,7 +180,7 @@ export class RawImportFileRepository {
         input.tags === undefined ? null : JSON.stringify(input.tags),
       ],
     );
-    return this.toRecord(rows[0]);
+    return this.toRecord(firstQueryRow(rows));
   }
 
   async attachDataImport(projectId: string, fileId: string, dataImportId: string): Promise<RawImportFileRecord> {
@@ -192,7 +194,7 @@ export class RawImportFileRepository {
        RETURNING *`,
       [projectId, fileId, dataImportId, RawFileStatus.PROCESSING],
     );
-    return this.toRecord(rows[0]);
+    return this.toRecord(firstQueryRow(rows));
   }
 
   private toRecord(row: Record<string, any>): RawImportFileRecord {
@@ -223,7 +225,16 @@ export class RawImportFileRepository {
     };
   }
 
-  private toIso(value: Date | string): string {
-    return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+  private toIso(value: Date | string | null | undefined): string {
+    if (value == null) {
+      throw new Error('Expected a timestamp value but received null or undefined');
+    }
+
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      throw new Error(`Invalid timestamp value: ${String(value)}`);
+    }
+
+    return date.toISOString();
   }
 }

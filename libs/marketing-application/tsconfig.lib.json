@@ -19,6 +19,9 @@
   "include": ["src/**/*.ts"],
   "references": [
     {
+      "path": "../core-infrastructure/tsconfig.lib.json"
+    },
+    {
       "path": "../marketing-infrastructure/tsconfig.lib.json"
     },
     {

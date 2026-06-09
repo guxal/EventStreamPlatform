@@ -5,18 +5,11 @@
       "@metrics-platform/core-application": [
         "libs/core-application/src/index.ts"
       ],
-      "@metrics-platform/core-domain": [
-        "libs/core-domain/src/index.ts"
-      ],
+      "@metrics-platform/core-domain": ["libs/core-domain/src/index.ts"],
       "@metrics-platform/core-infrastructure": [
         "libs/core-infrastructure/src/index.ts"
       ],
-      "@metrics-platform/core-shared": [
-        "libs/core-shared/src/index.ts"
-      ],
-      "@metrics-platform/marketing-shared": [
-        "libs/marketing-shared/src/index.ts"
-      ],
+      "@metrics-platform/core-shared": ["libs/core-shared/src/index.ts"],
       "@metrics-platform/marketing-application": [
         "libs/marketing-application/src/index.ts"
       ],
@@ -31,9 +24,7 @@
     "emitDeclarationOnly": false,
     "importHelpers": true,
     "isolatedModules": true,
-    "lib": [
-      "es2022"
-    ],
+    "lib": ["es2022"],
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "noEmitOnError": true,
@@ -44,8 +35,6 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "es2022",
-    "customConditions": [
-      "development"
-    ]
+    "customConditions": ["development"]
   }
 }

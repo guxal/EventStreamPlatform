@@ -15,9 +15,10 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CreateEventDto } from '@metrics-platform/core-shared';
 import { AppService } from './app.service';
-import { ApiBody, ApiConsumes, ApiHeader, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiConsumes, ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import type { CreateImportPayload, CreateProjectPayload } from './projects.types';
+import { CsvImportUploadDto, FileHubUploadDto } from './swagger/file-upload.dto';
 import type {
   CreateRawFilePayload,
   FileHubListFilters,
@@ -35,6 +36,12 @@ type MultipartFileHubUploadBody = {
   fileName?: string;
   mimeType?: string;
   tags?: RawImportFileTags | string;
+  contentBase64?: string;
+};
+
+type MultipartCsvImportBody = {
+  fileName?: string;
+  contentType?: string;
   contentBase64?: string;
 };
 
@@ -101,19 +108,22 @@ export class AppController {
 
   @Post('projects/:id/imports/csv')
   @ApiTags('imports')
-  @ApiOperation({ summary: 'Legacy CSV import upload that immediately publishes a processing job' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      required: ['fileName'],
-      properties: {
-        fileName: { type: 'string' },
-        contentBase64: { type: 'string' },
-        contentType: { type: 'string', default: 'text/csv' },
-      },
-    },
+  @ApiOperation({
+    summary: 'Legacy CSV import upload that immediately publishes a processing job',
+    description:
+      'Upload a CSV directly with the `file` field in Swagger. The endpoint also keeps backward compatibility with JSON `contentBase64` payloads.',
   })
-  createProjectImport(@Param('id') projectId: string, @Body() payload: CreateImportPayload) {
+  @ApiParam({ name: 'id', description: 'Project ID' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ type: CsvImportUploadDto })
+  @ApiResponse({ status: 201, description: 'CSV stored and processing job published.' })
+  @UseInterceptors(FileInterceptor('file'))
+  createProjectImport(
+    @Param('id') projectId: string,
+    @UploadedFile() file: UploadedCsvFile | undefined,
+    @Body() body: MultipartCsvImportBody,
+  ) {
+    const payload = this.buildCsvImportPayload(file, body);
     return this.appService.createProjectImport(projectId, payload);
   }
 
@@ -122,35 +132,11 @@ export class AppController {
   @ApiOperation({
     summary: 'Upload a raw CSV file to the Bronze Layer File Hub without immediate processing',
     description:
-      'Use the `file` multipart field in Swagger to upload a CSV directly. The endpoint also keeps backward compatibility with JSON `contentBase64` payloads.',
+      'Use the `file` field in Swagger to upload a CSV directly. The endpoint also keeps backward compatibility with JSON `contentBase64` payloads.',
   })
+  @ApiParam({ name: 'id', description: 'Project ID' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      required: ['file'],
-      properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
-          description: 'CSV file to store, profile, and auto-classify in the File Hub.',
-        },
-        fileName: {
-          type: 'string',
-          description: 'Optional override for the original filename. Defaults to uploaded file name.',
-        },
-        mimeType: {
-          type: 'string',
-          default: 'text/csv',
-          description: 'Optional MIME type override. Defaults to uploaded file mimetype.',
-        },
-        tags: {
-          oneOf: [{ type: 'object', additionalProperties: true }, { type: 'string' }],
-          description: 'Optional JSON object or JSON string with Bronze Layer tags.',
-        },
-      },
-    },
-  })
+  @ApiBody({ type: FileHubUploadDto })
   @ApiResponse({ status: 201, description: 'Raw file stored, profiled, classified, and assigned a File Hub status.' })
   @UseInterceptors(FileInterceptor('file'))
   uploadProjectFile(
@@ -235,6 +221,26 @@ export class AppController {
   @ApiOperation({ summary: 'List legacy project imports' })
   listProjectImports(@Param('id') projectId: string) {
     return this.appService.listProjectImports(projectId);
+  }
+
+  private buildCsvImportPayload(file: UploadedCsvFile | undefined, body: MultipartCsvImportBody): CreateImportPayload {
+    if (file) {
+      return {
+        fileName: body.fileName || file.originalname,
+        contentBase64: file.buffer.toString('base64'),
+        contentType: body.contentType || file.mimetype || 'text/csv',
+      };
+    }
+
+    if (body.contentBase64 && body.fileName) {
+      return {
+        fileName: body.fileName,
+        contentBase64: body.contentBase64,
+        contentType: body.contentType || 'text/csv',
+      };
+    }
+
+    throw new BadRequestException('Upload a multipart `file`, or provide JSON `fileName` and `contentBase64`.');
   }
 
   private buildFileHubUploadPayload(file: UploadedCsvFile | undefined, body: MultipartFileHubUploadBody): CreateRawFilePayload {
