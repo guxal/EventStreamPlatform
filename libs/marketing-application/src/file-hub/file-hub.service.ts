@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { EventProducerService } from '@metrics-platform/core-infrastructure';
 import {
   DataSource,
+  ImportStatus,
   RawFileStatus,
   ReportType,
   type CreateRawFilePayload,
@@ -128,6 +129,7 @@ export class FileHubService {
   }
 
   async requestProcessing(projectId: string, fileId: string, triggeredBy = 'api-writer'): Promise<ProcessRawFileResult> {
+    void triggeredBy;
     const rawFile = await this.getFile(projectId, fileId);
     if (rawFile.status !== RawFileStatus.READY_TO_PROCESS) {
       throw new BadRequestException(`Raw file ${fileId} must be READY_TO_PROCESS before processing can start`);
@@ -137,9 +139,15 @@ export class FileHubService {
       throw new BadRequestException('Unknown files cannot be processed until source and report_type are confirmed');
     }
 
+    if (rawFile.source !== DataSource.APPSFLYER) {
+      throw new BadRequestException('Only AppsFlyer File Hub files can be processed by this endpoint in V1');
+    }
+
     const dataImportId = rawFile.dataImportId ?? randomUUID();
     if (!rawFile.dataImportId) {
-      await this.dataImportRepository.createForRawFile({ id: dataImportId, projectId, rawFileId: fileId });
+      await this.dataImportRepository.createForRawFile({ id: dataImportId, projectId, rawFileId: fileId, status: ImportStatus.PENDING });
+    } else {
+      await this.dataImportRepository.updateStatus(projectId, dataImportId, ImportStatus.PENDING);
     }
 
     const updatedRawFile = await this.rawImportFileRepository.attachDataImport(projectId, fileId, dataImportId);
@@ -148,10 +156,13 @@ export class FileHubService {
       rawFileId: fileId,
       dataImportId,
       storageUri: rawFile.storageUri,
+      bucket: rawFile.bucket,
+      objectKey: rawFile.objectKey,
       source: rawFile.source,
       reportType: rawFile.reportType,
       tags: rawFile.tags,
-      triggeredBy,
+      triggeredBy: 'file_hub',
+      correlationId: randomUUID(),
     };
 
     await this.eventProducerService.publishMarketingImport(jobPayload);

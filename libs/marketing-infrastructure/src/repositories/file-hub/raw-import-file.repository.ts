@@ -197,6 +197,18 @@ export class RawImportFileRepository {
     return this.toRecord(firstQueryRow(rows));
   }
 
+
+  async markFailed(projectId: string, fileId: string, errorMessage: string, errorSummary: Record<string, unknown>): Promise<RawImportFileRecord> {
+    const rows = await this.dataSource.query(
+      `UPDATE raw_import_files
+       SET status = $3, error_message = $4, error_summary = $5::jsonb, error_stage = $6, updated_at = NOW()
+       WHERE project_id = $1 AND id = $2
+       RETURNING *`,
+      [projectId, fileId, RawFileStatus.FAILED, errorMessage, JSON.stringify(errorSummary), errorSummary.errorStage ?? errorSummary.error_stage ?? null],
+    );
+    return this.toRecord(firstQueryRow(rows));
+  }
+
   private toRecord(row: Record<string, any>): RawImportFileRecord {
     return {
       id: row.id,

@@ -40,18 +40,18 @@ export class AppController {
   }
 
   @Get('projects/:id/facts')
-  listFacts(@Param('id') projectId: string) {
-    return this.appService.listProjectFacts(projectId);
+  listFacts(@Param('id') projectId: string, @Query('source') source?: string, @Query('reportType') reportType?: string, @Query('report_type') report_type?: string) {
+    return this.appService.listProjectFacts(projectId, { source, reportType: reportType ?? report_type });
   }
 
   @Get('projects/:id/recommendations')
-  listRecommendations(@Param('id') projectId: string) {
-    return this.appService.listProjectRecommendations(projectId);
+  listRecommendations(@Param('id') projectId: string, @Query('source') source?: string, @Query('reportType') reportType?: string, @Query('report_type') report_type?: string) {
+    return this.appService.listProjectRecommendations(projectId, { source, reportType: reportType ?? report_type });
   }
 
   @Get('projects/:id/reports')
-  listReports(@Param('id') projectId: string) {
-    return this.appService.listProjectReports(projectId);
+  listReports(@Param('id') projectId: string, @Query('source') source?: string, @Query('reportType') reportType?: string, @Query('report_type') report_type?: string) {
+    return this.appService.listProjectReports(projectId, { source, reportType: reportType ?? report_type });
   }
 
   @Post('projects/:id/ai-chat')

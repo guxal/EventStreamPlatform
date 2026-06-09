@@ -48,7 +48,7 @@ export class AppService {
     ];
   }
 
-  listProjectFacts(projectId: string) {
+  listProjectFacts(projectId: string, filters: { source?: string; reportType?: string } = {}) {
     return [
       {
         id: 'fact_1',
@@ -56,28 +56,33 @@ export class AppService {
         factType: FactType.HIGH_SPEND_ZERO_CONVERSIONS,
         severity: Severity.CRITICAL,
         confidence: 0.98,
+        source: filters.source,
+        reportType: filters.reportType,
       },
     ];
   }
 
-  listProjectRecommendations(projectId: string) {
+  listProjectRecommendations(projectId: string, filters: { source?: string; reportType?: string } = {}) {
     return [
       {
         id: 'rec_1',
         projectId,
         title: 'Pause wasteful campaign segment',
         priority: 'CRITICAL',
+        source: filters.source,
+        reportType: filters.reportType,
       },
     ];
   }
 
-  listProjectReports(projectId: string) {
+  listProjectReports(projectId: string, filters: { source?: string; reportType?: string } = {}) {
     return [
       {
         id: 'rep_1',
         projectId,
         title: 'AI Marketing Performance Report',
-        reportType: 'WEEKLY',
+        reportType: filters.reportType ?? 'WEEKLY',
+        source: filters.source,
       },
     ];
   }
