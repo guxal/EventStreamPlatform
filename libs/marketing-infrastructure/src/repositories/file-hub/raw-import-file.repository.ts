@@ -212,6 +212,16 @@ export class RawImportFileRepository {
     return this.toRecord(firstQueryRow(rows));
   }
 
+  async deleteByProjectAndId(projectId: string, fileId: string): Promise<RawImportFileRecord | null> {
+    const rows = await this.dataSource.query(
+      `DELETE FROM raw_import_files
+       WHERE project_id = $1 AND id = $2
+       RETURNING *`,
+      [projectId, fileId],
+    );
+    const record = unwrapQueryRows<Record<string, unknown>>(rows)[0];
+    return record ? this.toRecord(record) : null;
+  }
 
   async markFailed(projectId: string, fileId: string, errorMessage: string, errorSummary: Record<string, unknown>): Promise<RawImportFileRecord> {
     const rows = await this.dataSource.query(

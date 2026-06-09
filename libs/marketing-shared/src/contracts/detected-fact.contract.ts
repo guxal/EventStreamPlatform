@@ -4,6 +4,7 @@ import { Severity } from '../enums/severity.enum';
 import { TemporalContext } from '../types/temporal-context.type';
 
 export type DetectedFact = {
+  id?: string;
   entityId: string;
   entityType: EntityType;
   factType: FactType;
@@ -12,4 +13,7 @@ export type DetectedFact = {
   temporalContext: TemporalContext;
   metricsSummary: Record<string, unknown>;
   recommendationHint?: string;
+  semanticEntityId?: string;
+  relatedSemanticEntityIds?: string[];
+  contextObjectIds?: string[];
 };

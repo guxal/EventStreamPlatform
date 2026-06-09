@@ -27,6 +27,15 @@ export class AppsFlyerFactsPlugin {
     if (this.hasMediaSourceQualityDifference(kpis)) {
       facts.push({ ...base, factType: FactType.MEDIA_SOURCE_QUALITY_DIFFERENCE, severity: Severity.INFO, confidence: 0.8, metricsSummary: { eventsByMediaSource: kpis.eventsByMediaSource, deposits: kpis.deposits, firstDeposits: kpis.firstDeposits }, recommendationHint: 'Event quality differs by media source. Compare registration/deposit mix before shifting budget.' });
     }
+    if (this.hasComparableInstallAndEventData(kpis) && kpis.registrations / kpis.installsCount < 0.05) {
+      facts.push({ ...base, factType: FactType.LOW_INSTALL_TO_REGISTER, severity: Severity.WARNING, confidence: 0.82, metricsSummary: { installs: kpis.installsCount, registrations: kpis.registrations, installToRegisterRate: kpis.registrations / kpis.installsCount }, recommendationHint: 'Install-to-registration rate is low for comparable AppsFlyer install/event data. Validate onboarding and event mapping before acting.' });
+    }
+    if (this.hasComparableInstallAndEventData(kpis) && kpis.deposits > 0 && kpis.deposits / kpis.installsCount < 0.01) {
+      facts.push({ ...base, factType: FactType.LOW_INSTALL_TO_DEPOSIT, severity: Severity.WARNING, confidence: 0.8, metricsSummary: { installs: kpis.installsCount, deposits: kpis.deposits, installToDepositRate: kpis.deposits / kpis.installsCount }, recommendationHint: 'Install-to-deposit rate is low on comparable AppsFlyer data. Review deposit funnel instrumentation and friction.' });
+    }
+    if (this.hasComparableInstallAndEventData(kpis) && kpis.firstDeposits > 0 && kpis.firstDeposits / kpis.installsCount < 0.01) {
+      facts.push({ ...base, factType: FactType.LOW_INSTALL_TO_FTD, severity: Severity.WARNING, confidence: 0.8, metricsSummary: { installs: kpis.installsCount, firstDeposits: kpis.firstDeposits, installToFtdRate: kpis.firstDeposits / kpis.installsCount }, recommendationHint: 'Install-to-first-deposit rate is low on comparable AppsFlyer data. Confirm FTD event quality before acting.' });
+    }
     const conversionEvents = kpis.registrations + kpis.deposits + kpis.firstDeposits;
     const noisyEvents = kpis.engagementEvents + kpis.loginEvents;
     if (kpis.totalNormalizedEvents >= 20 && noisyEvents / kpis.totalNormalizedEvents >= 0.8 && conversionEvents / kpis.totalNormalizedEvents <= 0.05) {
@@ -38,4 +47,5 @@ export class AppsFlyerFactsPlugin {
   private temporalContext() { const today = new Date().toISOString().slice(0, 10); return { lookbackDays: 0, startDate: today, endDate: today }; }
   private isEventReport(reportType: ReportType): boolean { return [ReportType.IN_APP_EVENTS, ReportType.NON_ORGANIC_IN_APP_EVENTS, ReportType.IN_APP_EVENTS_POSTBACKS, ReportType.BLOCKED_IN_APP_EVENTS, ReportType.AD_REVENUE, ReportType.CONVERSIONS].includes(reportType); }
   private hasMediaSourceQualityDifference(kpis: AppsFlyerKpiResult): boolean { return Object.keys(kpis.eventsByMediaSource).length >= 2 && (kpis.deposits + kpis.firstDeposits + kpis.registrations) > 0; }
+  private hasComparableInstallAndEventData(kpis: AppsFlyerKpiResult): boolean { return kpis.installsCount > 0 && (kpis.registrations + kpis.deposits + kpis.firstDeposits) > 0; }
 }

@@ -81,14 +81,19 @@ describe('FileHubService', () => {
         return state.rawFile;
       }),
       listByProject: jest.fn(async () => [state.rawFile]),
+      deleteByProjectAndId: jest.fn(async () => state.rawFile),
     };
     const dataImportRepo = {
       createForRawFile: jest.fn(async ({ id, projectId }) => ({ id, projectId, status: 'PENDING', createdAt: 'now' })),
       updateStatus: jest.fn(async (projectId, id, status) => ({ id, projectId, status, createdAt: 'now' })),
       resetForReprocess: jest.fn(async (projectId, id) => ({ id, projectId, status: 'PENDING', createdAt: 'now' })),
     };
+    const objectStorage = {
+      putObject: jest.fn(async () => ({ uri: 'file:///tmp/campaigns.csv', sizeBytes: 100 })),
+      deleteObject: jest.fn(async () => ({ deleted: true, uri: 'file:///tmp/campaigns.csv' })),
+    };
     const service = new FileHubService(
-      { putObject: jest.fn(async () => ({ uri: 'file:///tmp/campaigns.csv', sizeBytes: 100 })) } as never,
+      objectStorage as never,
       rawRepo as never,
       dataImportRepo as never,
       { exists: jest.fn(async () => true) } as never,
@@ -96,7 +101,7 @@ describe('FileHubService', () => {
       { classify: jest.fn(() => ({ source: DataSource.GOOGLE_ADS, reportType: ReportType.CAMPAIGNS, confidence: 0.92, reasons: [] })) } as never,
       { publishMarketingImport: jest.fn(async () => undefined) } as never,
     );
-    return { service, rawRepo, dataImportRepo };
+    return { service, rawRepo, dataImportRepo, objectStorage };
   };
 
   it('marks high-confidence uploads as READY_TO_PROCESS', async () => {
@@ -128,7 +133,27 @@ describe('FileHubService', () => {
     await expect(service.requestProcessing('project-1', 'file-1')).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('deletes a non-processing project file and its stored object', async () => {
+    const { service, rawRepo, objectStorage } = createService({ status: RawFileStatus.READY_TO_PROCESS });
 
+    const result = await service.deleteFile('project-1', 'file-1');
+
+    expect(objectStorage.deleteObject).toHaveBeenCalledWith({
+      bucketName: 'marketing-imports',
+      objectKey: 'project-1/raw-files/file-1/campaigns.csv',
+    });
+    expect(rawRepo.deleteByProjectAndId).toHaveBeenCalledWith('project-1', 'file-1');
+    expect(result.deleted).toBe(true);
+    expect(result.storageDeleted).toBe(true);
+  });
+
+  it('rejects deleting files while they are processing', async () => {
+    const { service, rawRepo, objectStorage } = createService({ status: RawFileStatus.PROCESSING });
+
+    await expect(service.deleteFile('project-1', 'file-1')).rejects.toBeInstanceOf(BadRequestException);
+    expect(objectStorage.deleteObject).not.toHaveBeenCalled();
+    expect(rawRepo.deleteByProjectAndId).not.toHaveBeenCalled();
+  });
 
   it('rejects READY_TO_PROCESS files with UNKNOWN source/report type', async () => {
     const { service } = createService({

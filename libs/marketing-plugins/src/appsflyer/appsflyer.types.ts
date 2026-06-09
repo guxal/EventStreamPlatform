@@ -60,6 +60,10 @@ export type AppsFlyerKpiResult = {
   eventsByPlatform: Record<string, number>;
   blockedEventsCount: number;
   blockedEventsRate: number | null;
+  blockedClicks: number;
+  blockedInAppEvents: number;
+  blockedReasons: Record<string, number>;
+  rejectedReasons: Record<string, number>;
   installsCount: number;
   installsByMediaSource: Record<string, number>;
   installsByCampaign: Record<string, number>;
@@ -80,8 +84,11 @@ export type AppsFlyerKpiResult = {
   eventRevenueEmptyCount: number;
   eventRevenuePresentCount: number;
   hasReliableCostSource: false;
+  unavailableMetrics: Array<{ metric: string; reason: string }>;
   roas?: never;
+  cpa?: never;
   installToDepositRate?: never;
+  installToFtdRate?: never;
 };
 
 export type AppsFlyerPipelineResult = {

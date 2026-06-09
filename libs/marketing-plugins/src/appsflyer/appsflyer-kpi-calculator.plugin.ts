@@ -28,6 +28,10 @@ export class AppsFlyerKpiCalculatorPlugin {
       eventsByPlatform: {},
       blockedEventsCount: 0,
       blockedEventsRate: null,
+      blockedClicks: 0,
+      blockedInAppEvents: 0,
+      blockedReasons: {},
+      rejectedReasons: {},
       installsCount: 0,
       installsByMediaSource: {},
       installsByCampaign: {},
@@ -48,6 +52,12 @@ export class AppsFlyerKpiCalculatorPlugin {
       eventRevenueEmptyCount: 0,
       eventRevenuePresentCount: 0,
       hasReliableCostSource: false,
+      unavailableMetrics: [
+        { metric: 'roas', reason: 'AppsFlyer-only data has no reliable cost source.' },
+        { metric: 'cpa', reason: 'AppsFlyer-only data has no reliable cost source.' },
+        { metric: 'install_to_deposit_rate', reason: 'Requires comparable install and event data for the same period.' },
+        { metric: 'install_to_ftd_rate', reason: 'Requires comparable install and first-deposit event data for the same period.' },
+      ],
     };
 
     for (const event of events) {
@@ -61,7 +71,13 @@ export class AppsFlyerKpiCalculatorPlugin {
 
       if (event.appsflyerId) { appsFlyerIds.add(event.appsflyerId); userIds.add(`af:${event.appsflyerId}`); }
       if (event.customerUserId) { customerUserIds.add(event.customerUserId); userIds.add(`cu:${event.customerUserId}`); }
-      if (event.isBlocked) blockedEventsCount += 1;
+      if (event.isBlocked) {
+        blockedEventsCount += 1;
+        if (event.blockedReason) this.increment(result.blockedReasons, event.blockedReason);
+        if (event.rejectedReason) this.increment(result.rejectedReasons, event.rejectedReason);
+      }
+      if (event.reportType === ReportType.BLOCKED_CLICKS) result.blockedClicks += 1;
+      if (event.reportType === ReportType.BLOCKED_IN_APP_EVENTS) result.blockedInAppEvents += 1;
       if (event.eventAmount !== null && event.eventAmount !== undefined) eventAmountInJsonCount += 1;
       if (event.eventRevenue === null || event.eventRevenue === undefined) eventRevenueEmptyCount += 1; else eventRevenuePresentCount += 1;
 

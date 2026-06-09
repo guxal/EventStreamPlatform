@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { createReadStream } from 'fs';
-import { mkdir, stat, writeFile } from 'fs/promises';
+import { mkdir, rm, stat, writeFile } from 'fs/promises';
 import { dirname, join } from 'path';
 import type { Readable } from 'stream';
 
@@ -11,6 +11,11 @@ export type PutObjectInput = {
 };
 
 export type GetObjectStreamInput = {
+  bucketName: string;
+  objectKey: string;
+};
+
+export type DeleteObjectInput = {
   bucketName: string;
   objectKey: string;
 };
@@ -41,6 +46,12 @@ export class ObjectStorageService {
       sizeBytes: metadata.size,
       uri: `file://${fullPath}`,
     };
+  }
+
+  async deleteObject(input: DeleteObjectInput): Promise<{ deleted: true; uri: string }> {
+    const fullPath = this.resolvePath(input.bucketName, input.objectKey);
+    await rm(fullPath, { force: true });
+    return { deleted: true, uri: `file://${fullPath}` };
   }
 
   private resolvePath(bucketName: string, objectKey: string): string {

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   Param,
@@ -164,6 +165,16 @@ export class AppController {
   @ApiOperation({ summary: 'Get File Hub file detail, profile, classification, tags, and status' })
   getProjectFile(@Param('id') projectId: string, @Param('fileId') fileId: string) {
     return this.appService.getProjectFile(projectId, fileId);
+  }
+
+  @Delete('projects/:id/files/:fileId')
+  @ApiTags('file-hub')
+  @ApiOperation({ summary: 'Delete a File Hub file from a project and remove its stored raw object' })
+  @ApiParam({ name: 'id', description: 'Project ID' })
+  @ApiParam({ name: 'fileId', description: 'Raw File Hub file ID' })
+  @ApiResponse({ status: 200, description: 'Raw file metadata and stored object deleted.' })
+  deleteProjectFile(@Param('id') projectId: string, @Param('fileId') fileId: string) {
+    return this.appService.deleteProjectFile(projectId, fileId);
   }
 
   @Patch('projects/:id/files/:fileId/tags')

@@ -12,6 +12,8 @@ export type DashboardSummary = {
     cpa: number;
     roas: number;
   };
+  appsFlyer?: Record<string, unknown>;
+  unavailableMetrics?: Array<{ metric: string; reason: string }>;
 };
 
 export type CampaignRow = {

@@ -42,7 +42,7 @@ export class ClickHouseMarketingRepository {
       raw_payload: JSON.stringify(event.rawPayload),
       row_hash: event.rowHash,
     }));
-    await this.insertJsonEachRow('marketing.marketing_events', rows);
+    await this.insertJsonEachRow('marketing.marketing_events', rows, 1000);
   }
 
   async insertMetricSnapshot(projectId: string, importId: string, kpis: Record<string, unknown>): Promise<void> {
@@ -51,18 +51,21 @@ export class ClickHouseMarketingRepository {
     }]);
   }
 
-  private async insertJsonEachRow(table: string, rows: Record<string, unknown>[]): Promise<void> {
+  private async insertJsonEachRow(table: string, rows: Record<string, unknown>[], batchSize = 1000): Promise<void> {
     if (!this.endpoint || process.env.CLICKHOUSE_DISABLED === 'true') return;
-    const body = rows.map((row) => JSON.stringify(row)).join('\n');
-    const query = `INSERT INTO ${table} FORMAT JSONEachRow`;
-    const response = await axios.post(`${this.endpoint}/?query=${encodeURIComponent(query)}`, body, {
-      headers: { 'Content-Type': 'application/json' },
-      validateStatus: () => true,
-    });
+    for (let index = 0; index < rows.length; index += batchSize) {
+      const batch = rows.slice(index, index + batchSize);
+      const body = batch.map((row) => JSON.stringify(row)).join('\n');
+      const query = `INSERT INTO ${table} FORMAT JSONEachRow`;
+      const response = await axios.post(`${this.endpoint}/?query=${encodeURIComponent(query)}`, body, {
+        headers: { 'Content-Type': 'application/json' },
+        validateStatus: () => true,
+      });
 
-    if (response.status < 200 || response.status >= 300) {
-      const errorBody = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-      throw new Error(`ClickHouse insert failed for ${table}: ${response.status} ${errorBody}`);
+      if (response.status < 200 || response.status >= 300) {
+        const errorBody = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+        throw new Error(`ClickHouse insert failed for ${table}: ${response.status} ${errorBody}`);
+      }
     }
   }
 }
