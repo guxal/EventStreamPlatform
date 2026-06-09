@@ -2,7 +2,7 @@ import { Readable } from 'stream';
 import { AppsFlyerColumnMapper } from './appsflyer-column-mapper';
 import { AppsFlyerCsvStreamParserPlugin } from './appsflyer-csv-stream-parser.plugin';
 import { AppsFlyerEventValueParserPlugin } from './appsflyer-event-value-parser.plugin';
-import { AppsFlyerFactsPlugin } from './appsflyer-facts.plugin';
+import { AppsFlyerEventDictionaryPlugin } from './appsflyer-event-dictionary.plugin';
 import { AppsFlyerKpiCalculatorPlugin } from './appsflyer-kpi-calculator.plugin';
 import { AppsFlyerNormalizerPlugin } from './appsflyer-normalizer.plugin';
 import { AppsFlyerReportProfilerPlugin } from './appsflyer-report-profiler.plugin';
@@ -31,7 +31,7 @@ describe('AppsFlyer processing plugins', () => {
   });
 
   it('normalizer creates marketing_events-compatible rows', () => {
-    const event = new AppsFlyerNormalizerPlugin().normalize(context, { rowNumber: 1, warnings: [], raw: { Event: 'x' }, canonical: { eventName: 'first_deposit_success', eventTime: '2026-06-01T00:00:00Z', mediaSource: 'net', campaignName: 'camp' }, eventAmount: 10, eventValueJson: { amount: 10 } });
+    const event = new AppsFlyerNormalizerPlugin(new AppsFlyerEventDictionaryPlugin()).normalize(context, { rowNumber: 1, warnings: [], raw: { Event: 'x' }, canonical: { eventName: 'first_deposit_success', eventTime: '2026-06-01T00:00:00Z', mediaSource: 'net', campaignName: 'camp' }, eventAmount: 10, eventValueJson: { amount: 10 } });
     expect(event.rawFileId).toBe('file-1');
     expect(event.source).toBe(DataSource.APPSFLYER);
     expect(event.reportType).toBe(ReportType.NON_ORGANIC_IN_APP_EVENTS);
@@ -40,7 +40,7 @@ describe('AppsFlyer processing plugins', () => {
   });
 
   it('KPI calculator returns event counts and does not calculate ROAS or install-to-deposit without cost/install source', () => {
-    const normalizer = new AppsFlyerNormalizerPlugin();
+    const normalizer = new AppsFlyerNormalizerPlugin(new AppsFlyerEventDictionaryPlugin());
     const events = [
       normalizer.normalize(context, { rowNumber: 1, warnings: [], raw: {}, canonical: { eventName: 'deposit_success', eventTime: '2026-06-01', appsflyerId: 'af-1' }, eventAmount: 10, eventValueJson: { amount: 10 } }),
       normalizer.normalize(context, { rowNumber: 2, warnings: [], raw: {}, canonical: { eventName: 'first_deposit_success', eventTime: '2026-06-01', customerUserId: 'cu-1' }, eventAmount: 20, eventValueJson: { amount: 20 } }),
@@ -63,7 +63,7 @@ describe('AppsFlyer processing plugins', () => {
   });
 
   it('profiler prepares EMPTY_REPORT and DATA_EXPORT_LIMIT_REACHED facts', async () => {
-    const profiler = new AppsFlyerReportProfilerPlugin();
+    const profiler = new AppsFlyerReportProfilerPlugin(new AppsFlyerCsvStreamParserPlugin());
     const empty = await profiler.profile({ context, existingProfile: { rowCount: 0, headers: ['A'], sampleRows: [], classificationConfidence: 1 } as never });
     const limited = await profiler.profile({ context, existingProfile: { rowCount: 200000, headers: ['A'], sampleRows: [], classificationConfidence: 1 } as never });
     expect(empty.preparedFacts[0].factType).toBe(FactType.EMPTY_REPORT);
