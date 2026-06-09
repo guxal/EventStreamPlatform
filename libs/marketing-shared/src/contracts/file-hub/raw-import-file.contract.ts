@@ -72,8 +72,11 @@ export interface MarketingImportProcessJobPayload {
   rawFileId: string;
   dataImportId: string;
   storageUri: string;
+  bucket: string;
+  objectKey: string;
   source: DataSource;
   reportType: ReportType;
   tags: RawImportFileTags;
   triggeredBy: string;
+  correlationId: string;
 }

@@ -81,7 +81,7 @@ describe('FileHubService', () => {
     const service = new FileHubService(
       { putObject: jest.fn(async () => ({ uri: 'file:///tmp/campaigns.csv', sizeBytes: 100 })) } as never,
       rawRepo as never,
-      { createForRawFile: jest.fn(async ({ id, projectId }) => ({ id, projectId, status: 'PROCESSING', createdAt: 'now' })) } as never,
+      { createForRawFile: jest.fn(async ({ id, projectId }) => ({ id, projectId, status: 'PENDING', createdAt: 'now' })), updateStatus: jest.fn(async (projectId, id, status) => ({ id, projectId, status, createdAt: 'now' })) } as never,
       { exists: jest.fn(async () => true) } as never,
       { profileStoredCsv: jest.fn(async () => profile) } as never,
       { classify: jest.fn(() => ({ source: DataSource.GOOGLE_ADS, reportType: ReportType.CAMPAIGNS, confidence: 0.92, reasons: [] })) } as never,
@@ -119,7 +119,20 @@ describe('FileHubService', () => {
     await expect(service.requestProcessing('project-1', 'file-1')).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('sets READY_TO_PROCESS files to PROCESSING and publishes a File Hub job payload', async () => {
+
+
+  it('rejects READY_TO_PROCESS files with UNKNOWN source/report type', async () => {
+    const { service } = createService({
+      status: RawFileStatus.READY_TO_PROCESS,
+      source: DataSource.UNKNOWN,
+      reportType: ReportType.UNKNOWN,
+      needsReview: false,
+    });
+
+    await expect(service.requestProcessing('project-1', 'file-1')).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects non-AppsFlyer files for V1 processing', async () => {
     const { service } = createService({
       status: RawFileStatus.READY_TO_PROCESS,
       source: DataSource.GOOGLE_ADS,
@@ -127,11 +140,26 @@ describe('FileHubService', () => {
       needsReview: false,
     });
 
+    await expect(service.requestProcessing('project-1', 'file-1')).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('sets READY_TO_PROCESS files to PROCESSING and publishes a File Hub job payload', async () => {
+    const { service } = createService({
+      status: RawFileStatus.READY_TO_PROCESS,
+      source: DataSource.APPSFLYER,
+      reportType: ReportType.INSTALLS,
+      needsReview: false,
+    });
+
     const result = await service.requestProcessing('project-1', 'file-1');
 
     expect(result.rawFile.status).toBe(RawFileStatus.PROCESSING);
     expect(result.payload.rawFileId).toBe('file-1');
-    expect(result.payload.source).toBe(DataSource.GOOGLE_ADS);
-    expect(result.payload.reportType).toBe(ReportType.CAMPAIGNS);
+    expect(result.payload.source).toBe(DataSource.APPSFLYER);
+    expect(result.payload.reportType).toBe(ReportType.INSTALLS);
+    expect(result.payload.bucket).toBe('marketing-imports');
+    expect(result.payload.objectKey).toBe('project-1/raw-files/file-1/campaigns.csv');
+    expect(result.payload.triggeredBy).toBe('file_hub');
+    expect(result.payload.correlationId).toBeTruthy();
   });
 });

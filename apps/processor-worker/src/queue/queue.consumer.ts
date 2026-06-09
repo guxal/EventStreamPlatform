@@ -5,7 +5,7 @@ import { Logger } from '@nestjs/common';
 const logger = new Logger('QueueConsumer');
 
 // Función para iniciar el consumer dinámicamente
-export function startQueueConsumer(queueName: string, handler: (event: any) => Promise<void>) {
+export function startQueueConsumer(queueName: string, handler: (event: any, job?: Job) => Promise<void>) {
   const connection = {
     host: process.env.REDIS_HOST || 'localhost',
     port: process.env.REDIS_PORT ? Number(process.env.REDIS_PORT) : 6379,
@@ -14,7 +14,7 @@ export function startQueueConsumer(queueName: string, handler: (event: any) => P
   new Worker(
     queueName,
     async (job: Job) => {
-      await handler(job.data);
+      await handler(job.data, job);
     },
     {
       connection,

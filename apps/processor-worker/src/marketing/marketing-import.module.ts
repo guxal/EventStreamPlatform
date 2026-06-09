@@ -1,7 +1,11 @@
 import { Module } from '@nestjs/common';
-import { MarketingImportPlaceholderProcessor } from './marketing-import-placeholder.processor';
+import { MarketingApplicationModule } from '@metrics-platform/marketing-application';
+import { MarketingInfrastructureModule } from '@metrics-platform/marketing-infrastructure';
+import { MarketingPluginsModule } from '@metrics-platform/marketing-plugins';
+import { AppsFlyerImportProcessor } from './appsflyer-import.processor';
 
 @Module({
-  providers: [MarketingImportPlaceholderProcessor],
+  imports: [MarketingInfrastructureModule, MarketingApplicationModule, MarketingPluginsModule],
+  providers: [AppsFlyerImportProcessor],
 })
 export class MarketingImportModule {}

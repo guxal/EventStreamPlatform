@@ -10,6 +10,6 @@ export type DetectedFact = {
   severity: Severity;
   confidence: number;
   temporalContext: TemporalContext;
-  metricsSummary: Record<string, number>;
+  metricsSummary: Record<string, unknown>;
   recommendationHint?: string;
 };
