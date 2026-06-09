@@ -10,6 +10,18 @@
       "path": "../../libs/core-infrastructure"
     },
     {
+      "path": "../../libs/marketing-shared"
+    },
+    {
+      "path": "../../libs/marketing-application"
+    },
+    {
+      "path": "../../libs/marketing-infrastructure"
+    },
+    {
+      "path": "../../libs/marketing-plugins"
+    },
+    {
       "path": "./tsconfig.app.json"
     },
     {

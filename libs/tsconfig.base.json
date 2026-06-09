@@ -2,16 +2,38 @@
   "compilerOptions": {
     "composite": true,
     "paths": {
-      "@metrics-platform/core-shared": ["core-shared/src/index.ts"],
-      "@metrics-platform/core-domain": ["core-domain/src/index.ts"],
-      "@metrics-platform/core-application": ["core-application/src/index.ts"],
-      "@metrics-platform/core-infrastructure": ["core-infrastructure/src/index.ts"]
+      "@metrics-platform/core-shared": [
+        "core-shared/src/index.ts"
+      ],
+      "@metrics-platform/core-domain": [
+        "core-domain/src/index.ts"
+      ],
+      "@metrics-platform/core-application": [
+        "core-application/src/index.ts"
+      ],
+      "@metrics-platform/core-infrastructure": [
+        "core-infrastructure/src/index.ts"
+      ],
+      "@metrics-platform/marketing-shared": [
+        "marketing-shared/src/index.ts"
+      ],
+      "@metrics-platform/marketing-application": [
+        "marketing-application/src/index.ts"
+      ],
+      "@metrics-platform/marketing-infrastructure": [
+        "marketing-infrastructure/src/index.ts"
+      ],
+      "@metrics-platform/marketing-plugins": [
+        "marketing-plugins/src/index.ts"
+      ]
     },
     "declarationMap": true,
     "emitDeclarationOnly": false,
     "importHelpers": true,
     "isolatedModules": true,
-    "lib": ["es2022"],
+    "lib": [
+      "es2022"
+    ],
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "noEmitOnError": true,
@@ -22,6 +44,8 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "es2022",
-    "customConditions": ["development"]
+    "customConditions": [
+      "development"
+    ]
   }
 }
