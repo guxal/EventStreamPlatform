@@ -1,12 +1,34 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 import { GetMetricQuery, ListMetricsQuery } from '@metrics-platform/core-application';
-import { FactType, Severity } from '@metrics-platform/marketing-shared';
+import {
+  AiReportRepository,
+  AppsFlyerEventsRepository,
+  DataImportsReaderRepository,
+  DetectedFactRepository,
+  ProcessAuditRepository,
+  RecommendationRepository,
+  SemanticEntityRepository,
+  SemanticRelationshipRepository,
+  ContextObjectRepository,
+} from '@metrics-platform/marketing-infrastructure';
+import type { AiOutputListFilters, AppsFlyerEventFilters } from '@metrics-platform/marketing-infrastructure';
 import type { AiChatPayload, CampaignRow, DashboardSummary, KeywordRow } from './reader.types';
 
 @Injectable()
 export class AppService {
-  constructor(private readonly queryBus: QueryBus) {}
+  constructor(
+    private readonly queryBus: QueryBus,
+    private readonly detectedFactRepository: DetectedFactRepository,
+    private readonly recommendationRepository: RecommendationRepository,
+    private readonly aiReportRepository: AiReportRepository,
+    private readonly processAuditRepository: ProcessAuditRepository,
+    private readonly appsFlyerEventsRepository: AppsFlyerEventsRepository,
+    private readonly dataImportsReaderRepository: DataImportsReaderRepository,
+    private readonly semanticEntityRepository: SemanticEntityRepository,
+    private readonly semanticRelationshipRepository: SemanticRelationshipRepository,
+    private readonly contextObjectRepository: ContextObjectRepository,
+  ) {}
 
   async handleGetMetric(metricName: string, period: string, store: 'db' | 'redis' = 'db') {
     return this.queryBus.execute(new GetMetricQuery(metricName, period, store));
@@ -16,84 +38,148 @@ export class AppService {
     return this.queryBus.execute(new ListMetricsQuery(metricName, fromPeriod, toPeriod));
   }
 
-  getProjectDashboard(projectId: string, period = 'last_7_days'): DashboardSummary {
+  async getProjectDashboard(projectId: string, period = 'last_7_days'): Promise<DashboardSummary> {
+    const appsFlyer = await this.getAppsFlyerOverview(projectId);
     return {
       projectId,
       period,
       totals: {
-        impressions: 100000,
-        clicks: 4500,
-        cost: 3200,
-        conversions: 210,
-        conversionValue: 12800,
-        ctr: 0.045,
-        cpc: 0.71,
-        cpa: 15.24,
-        roas: 4,
+        impressions: 0,
+        clicks: 0,
+        cost: 0,
+        conversions: appsFlyer.registrations + appsFlyer.deposits + appsFlyer.firstDeposits,
+        conversionValue: appsFlyer.depositAmount,
+        ctr: 0,
+        cpc: 0,
+        cpa: 0,
+        roas: 0,
       },
+      appsFlyer: appsFlyer.totalEvents > 0 ? appsFlyer : undefined,
+      unavailableMetrics: appsFlyer.unavailableMetrics,
     };
   }
 
   listProjectCampaigns(_projectId: string): CampaignRow[] {
-    return [
-      { id: 'camp_1', name: 'Brand Search', status: 'ACTIVE', impressions: 25000, clicks: 2300, cost: 900, conversions: 120, roas: 5.2 },
-      { id: 'camp_2', name: 'Non-Brand', status: 'ACTIVE', impressions: 50000, clicks: 1600, cost: 1500, conversions: 60, roas: 2.1 },
-    ];
+    return [];
   }
 
   listProjectKeywords(_projectId: string): KeywordRow[] {
-    return [
-      { id: 'kw_1', text: 'crm software', matchType: 'PHRASE', impressions: 10000, clicks: 500, cost: 420, conversions: 20 },
-      { id: 'kw_2', text: 'best crm tool', matchType: 'EXACT', impressions: 8000, clicks: 430, cost: 300, conversions: 24 },
-    ];
+    return [];
   }
 
-  listProjectFacts(projectId: string, filters: { source?: string; reportType?: string } = {}) {
-    return [
-      {
-        id: 'fact_1',
+  async getOverview(projectId: string, filters: { source?: string } = {}) {
+    if (!filters.source || filters.source.toLowerCase() === 'appsflyer') return this.getAppsFlyerOverview(projectId);
+    return { projectId, source: filters.source, totalEvents: 0, warnings: ['No reader adapter is available for this source yet.'] };
+  }
+
+  async getSourceMetrics(projectId: string, filters: { source?: string } = {}) {
+    return this.getOverview(projectId, filters);
+  }
+
+  async getEntitiesPerformance(projectId: string, filters: { source?: string } = {}) {
+    if (!filters.source || filters.source.toLowerCase() === 'appsflyer') return this.getAppsFlyerCampaigns(projectId);
+    return [];
+  }
+
+  async getAppsFlyerOverview(projectId: string) {
+    return this.appsFlyerEventsRepository.getOverview(projectId);
+  }
+
+  async getAppsFlyerImportSummary(projectId: string, importId: string) {
+    const summary = await this.dataImportsReaderRepository.getAppsFlyerImportSummary(projectId, importId);
+    if (!summary) throw new NotFoundException(`Import ${importId} not found for project ${projectId}`);
+    return summary;
+  }
+
+  async getAppsFlyerEventsByName(projectId: string, filters: AppsFlyerEventFilters = {}) {
+    return this.appsFlyerEventsRepository.getEventsByName(projectId, filters);
+  }
+
+  async getAppsFlyerMediaSources(projectId: string) {
+    return this.appsFlyerEventsRepository.getMediaSources(projectId);
+  }
+
+  async getAppsFlyerCampaigns(projectId: string) {
+    return this.appsFlyerEventsRepository.getCampaigns(projectId);
+  }
+
+  async getAppsFlyerBlockedTraffic(projectId: string) {
+    return this.appsFlyerEventsRepository.getBlockedTraffic(projectId);
+  }
+
+  async listProjectFacts(projectId: string, filters: { source?: string; reportType?: string; includeSemantic?: string } = {}) {
+    const facts = await this.detectedFactRepository.listByProject(projectId, filters);
+    if (filters.includeSemantic !== 'true') return facts;
+    return { data: facts, semantic: await this.getSemanticBundle(projectId, { source: filters.source, reportType: filters.reportType }) };
+  }
+
+  async listProjectRecommendations(projectId: string, filters: AiOutputListFilters & { includeSemantic?: string } = {}) {
+    const recommendations = await this.recommendationRepository.listByProject(projectId, filters);
+    if (filters.includeSemantic !== 'true') return recommendations;
+    return { data: recommendations, semantic: await this.getSemanticBundle(projectId, { source: filters.source, reportType: filters.reportType }) };
+  }
+
+  async listProjectReports(projectId: string, filters: AiOutputListFilters & { includeSemantic?: string } = {}) {
+    const reports = await this.aiReportRepository.listByProject(projectId, filters);
+    if (filters.includeSemantic !== 'true') return reports;
+    return { data: reports, semantic: await this.getSemanticBundle(projectId, { source: filters.source, reportType: filters.reportType }) };
+  }
+
+  async listSemanticEntities(projectId: string, filters: { source?: string; entityType?: string; canonicalName?: string; importId?: string; reportType?: string } = {}) {
+    return this.semanticEntityRepository.searchEntities(projectId, filters);
+  }
+
+  async listSemanticRelationships(projectId: string, filters: { source?: string; relationshipType?: string; sourceEntityId?: string; targetEntityId?: string; importId?: string; reportType?: string } = {}) {
+    return this.semanticRelationshipRepository.searchRelationships(projectId, filters);
+  }
+
+  async listContextObjects(projectId: string, filters: { source?: string; contextType?: string; entityId?: string; reportType?: string; validAt?: string } = {}) {
+    return this.contextObjectRepository.searchContextObjects(projectId, filters);
+  }
+
+  private async getSemanticBundle(projectId: string, filters: { source?: string; reportType?: string } = {}) {
+    const [entities, relationships, contextObjects] = await Promise.all([
+      this.semanticEntityRepository.searchEntities(projectId, filters),
+      this.semanticRelationshipRepository.searchRelationships(projectId, filters),
+      this.contextObjectRepository.searchContextObjects(projectId, filters),
+    ]);
+    return { entities, relationships, contextObjects };
+  }
+
+  async listProjectProcesses(projectId: string, limit?: string) {
+    return this.processAuditRepository.listRunsByProject(projectId, limit ? Number(limit) : 50);
+  }
+
+  async getProjectProcess(projectId: string, runId: string) {
+    const run = await this.processAuditRepository.getRunWithSteps(projectId, runId);
+    if (!run) throw new NotFoundException(`Process run ${runId} not found for project ${projectId}`);
+    return run;
+  }
+
+  async getImportFlow(projectId: string, importId: string) {
+    const run = await this.processAuditRepository.getLatestRunByImport(projectId, importId);
+    if (!run) throw new NotFoundException(`No process run found for import ${importId}`);
+    return run;
+  }
+
+  async askAiChat(projectId: string, payload: AiChatPayload) {
+    const facts = await this.detectedFactRepository.listByProject(projectId);
+    if (facts.length === 0) {
+      return {
         projectId,
-        factType: FactType.HIGH_SPEND_ZERO_CONVERSIONS,
-        severity: Severity.CRITICAL,
-        confidence: 0.98,
-        source: filters.source,
-        reportType: filters.reportType,
-      },
-    ];
-  }
+        query: payload.query,
+        response: 'No hay facts detectados para este proyecto todavía. Sube y procesa un archivo antes de pedir recomendaciones.',
+        source: 'facts-first',
+      };
+    }
 
-  listProjectRecommendations(projectId: string, filters: { source?: string; reportType?: string } = {}) {
-    return [
-      {
-        id: 'rec_1',
-        projectId,
-        title: 'Pause wasteful campaign segment',
-        priority: 'CRITICAL',
-        source: filters.source,
-        reportType: filters.reportType,
-      },
-    ];
-  }
-
-  listProjectReports(projectId: string, filters: { source?: string; reportType?: string } = {}) {
-    return [
-      {
-        id: 'rep_1',
-        projectId,
-        title: 'AI Marketing Performance Report',
-        reportType: filters.reportType ?? 'WEEKLY',
-        source: filters.source,
-      },
-    ];
-  }
-
-  askAiChat(projectId: string, payload: AiChatPayload) {
+    const topFact = facts[0];
     return {
       projectId,
       query: payload.query,
-      response:
-        'Based on detected facts, the top issue is high spend with zero conversions. Recommend tightening targeting and validating landing-page relevance.',
+      response: `Basado solo en facts detectados, el principal hallazgo es ${topFact.factType} con severidad ${topFact.severity}. ${topFact.recommendationHint ?? 'Revisa el detalle del fact antes de tomar acción.'}`,
       source: 'facts-first',
+      fact: topFact,
     };
   }
 }

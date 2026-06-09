@@ -8,14 +8,23 @@ describe('AppController', () => {
   beforeAll(async () => {
     app = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService],
+      providers: [
+        {
+          provide: AppService,
+          useValue: {
+            getData: jest.fn().mockReturnValue({ message: 'EventStream Platform Admin API' }),
+            listProjectProcesses: jest.fn(),
+            getProjectProcess: jest.fn(),
+          },
+        },
+      ],
     }).compile();
   });
 
   describe('getData', () => {
-    it('should return "Hello API"', () => {
+    it('should return admin API message', () => {
       const appController = app.get<AppController>(AppController);
-      expect(appController.getData()).toEqual({ message: 'Hello API' });
+      expect(appController.getData()).toEqual({ message: 'EventStream Platform Admin API' });
     });
   });
 });

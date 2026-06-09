@@ -113,6 +113,10 @@ export class AppService {
     return this.fileHubService.getFile(projectId, fileId);
   }
 
+  deleteProjectFile(projectId: string, fileId: string) {
+    return this.fileHubService.deleteFile(projectId, fileId);
+  }
+
   updateProjectFileTags(projectId: string, fileId: string, payload: UpdateRawFileTagsPayload) {
     return this.fileHubService.updateTags(projectId, fileId, payload);
   }

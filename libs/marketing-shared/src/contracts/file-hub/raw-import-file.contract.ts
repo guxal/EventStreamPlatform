@@ -59,6 +59,12 @@ export interface FileHubListFilters {
   reportType?: ReportType;
 }
 
+export interface DeleteRawFileResult {
+  rawFile: RawImportFileRecord;
+  deleted: true;
+  storageDeleted: boolean;
+}
+
 export interface ProcessRawFileResult {
   rawFile: RawImportFileRecord;
   dataImportId: string;

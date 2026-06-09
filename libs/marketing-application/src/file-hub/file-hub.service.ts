@@ -7,6 +7,7 @@ import {
   RawFileStatus,
   ReportType,
   type CreateRawFilePayload,
+  type DeleteRawFileResult,
   type FileHubListFilters,
   type FileHubUploadResult,
   type ProcessRawFileResult,
@@ -108,6 +109,26 @@ export class FileHubService {
       throw new NotFoundException(`Raw file ${fileId} not found for project ${projectId}`);
     }
     return rawFile;
+  }
+
+  async deleteFile(projectId: string, fileId: string): Promise<DeleteRawFileResult> {
+    const rawFile = await this.getFile(projectId, fileId);
+    const nonDeletableStatuses = new Set<RawFileStatus>([
+      RawFileStatus.PROFILING,
+      RawFileStatus.PROCESSING,
+    ]);
+
+    if (nonDeletableStatuses.has(rawFile.status)) {
+      throw new BadRequestException(`Raw file ${fileId} cannot be deleted while status is ${rawFile.status}`);
+    }
+
+    await this.objectStorageService.deleteObject({ bucketName: rawFile.bucket, objectKey: rawFile.objectKey });
+    const deletedRawFile = await this.rawImportFileRepository.deleteByProjectAndId(projectId, fileId);
+    if (!deletedRawFile) {
+      throw new NotFoundException(`Raw file ${fileId} not found for project ${projectId}`);
+    }
+
+    return { rawFile: deletedRawFile, deleted: true, storageDeleted: true };
   }
 
   async updateTags(projectId: string, fileId: string, payload: UpdateRawFileTagsPayload): Promise<RawImportFileRecord> {
