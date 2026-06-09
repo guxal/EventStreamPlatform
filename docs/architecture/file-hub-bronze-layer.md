@@ -30,12 +30,13 @@ Implemented backend foundation only:
 - PostgreSQL raw file metadata persistence.
 - CSV profiling by stream.
 - Deterministic source/report classification.
-- BullMQ payload publication for files that are ready to process.
-- Worker placeholder validation for the new File Hub job payload.
+- BullMQ payload publication for AppsFlyer files that are ready to process.
+- Processor-worker AppsFlyer pipeline consumption after File Hub handoff.
 
 Not implemented in this layer:
 
-- Full AppsFlyer or Google Ads parsing into normalized entities/metrics.
+- Google Ads processing from File Hub.
+- AppsFlyer + Google Ads joins.
 - AI interpretation of raw files.
 - Frontend UI.
 
@@ -51,7 +52,7 @@ Not implemented in this layer:
 | `libs/marketing-infrastructure` | `ObjectStorageService` | Stores base64 upload content and exposes `getObjectStream` for profiling. |
 | `libs/marketing-infrastructure` | `RawImportFileRepository` | Persists and queries File Hub metadata in `raw_import_files`. |
 | `libs/marketing-infrastructure` | `DataImportRepository` | Creates the processing-side `data_imports` record when a ready file is triggered. |
-| `apps/processor-worker` | `MarketingImportPlaceholderProcessor` | Validates new File Hub job payload shape until full parser pipeline is implemented. |
+| `apps/processor-worker` | `AppsFlyerImportProcessor` | Consumes `marketing-imports/process-marketing-import`, streams AppsFlyer files, persists normalized events/KPIs/facts, and marks completion/failure. |
 
 ## Raw file lifecycle
 
@@ -94,6 +95,8 @@ READY_TO_PROCESS
 → POST /projects/:id/files/:fileId/process
 → PROCESSING
 → BullMQ marketing-imports/process-marketing-import
+→ processor-worker AppsFlyer pipeline
+→ COMPLETED or FAILED
 ```
 
 ## Source and report type classification
@@ -201,10 +204,12 @@ Validation:
 - File must exist under the same project.
 - File status must be `READY_TO_PROCESS`.
 - Source/report type must not be unknown.
+- Source must be `APPSFLYER` for the current V1 processing endpoint.
 
 Side effects:
 
 - Creates or reuses a `data_imports` record.
+- Links `raw_import_files.data_import_id` to the import.
 - Sets raw file status to `PROCESSING`.
 - Publishes BullMQ job `process-marketing-import` on queue `marketing-imports`.
 
@@ -216,10 +221,13 @@ Job payload shape:
   "rawFileId": "...",
   "dataImportId": "...",
   "storageUri": "file:///...",
-  "source": "GOOGLE_ADS",
-  "reportType": "campaigns",
+  "bucket": "marketing-imports",
+  "objectKey": "project/raw-files/file/report.csv",
+  "source": "APPSFLYER",
+  "reportType": "non_organic_in_app_events",
   "tags": {},
-  "triggeredBy": "api-writer"
+  "triggeredBy": "file_hub",
+  "correlationId": "..."
 }
 ```
 
@@ -240,4 +248,5 @@ The controller does **not** use a class-level `@ApiTags('events')`, so project/i
 - Do not process unknown files.
 - Do not process files before high-confidence auto-classification or valid manual tagging.
 - Keep the existing EventStream core endpoints intact.
-- Keep full AppsFlyer/Google Ads parsing for future plugin work; File Hub only profiles and classifies.
+- File Hub itself only profiles/classifies; AppsFlyer parsing starts in the processor-worker after the process endpoint.
+- Google Ads parsing and AppsFlyer + Google Ads joins remain future work.
