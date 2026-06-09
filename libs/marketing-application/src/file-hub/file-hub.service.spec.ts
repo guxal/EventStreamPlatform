@@ -76,18 +76,27 @@ describe('FileHubService', () => {
         state.rawFile = { ...state.rawFile, dataImportId, status: RawFileStatus.PROCESSING };
         return state.rawFile;
       }),
+      resetForReprocess: jest.fn(async () => {
+        state.rawFile = { ...state.rawFile, status: RawFileStatus.READY_TO_PROCESS, errorMessage: null, errorSummary: null };
+        return state.rawFile;
+      }),
       listByProject: jest.fn(async () => [state.rawFile]),
+    };
+    const dataImportRepo = {
+      createForRawFile: jest.fn(async ({ id, projectId }) => ({ id, projectId, status: 'PENDING', createdAt: 'now' })),
+      updateStatus: jest.fn(async (projectId, id, status) => ({ id, projectId, status, createdAt: 'now' })),
+      resetForReprocess: jest.fn(async (projectId, id) => ({ id, projectId, status: 'PENDING', createdAt: 'now' })),
     };
     const service = new FileHubService(
       { putObject: jest.fn(async () => ({ uri: 'file:///tmp/campaigns.csv', sizeBytes: 100 })) } as never,
       rawRepo as never,
-      { createForRawFile: jest.fn(async ({ id, projectId }) => ({ id, projectId, status: 'PENDING', createdAt: 'now' })), updateStatus: jest.fn(async (projectId, id, status) => ({ id, projectId, status, createdAt: 'now' })) } as never,
+      dataImportRepo as never,
       { exists: jest.fn(async () => true) } as never,
       { profileStoredCsv: jest.fn(async () => profile) } as never,
       { classify: jest.fn(() => ({ source: DataSource.GOOGLE_ADS, reportType: ReportType.CAMPAIGNS, confidence: 0.92, reasons: [] })) } as never,
       { publishMarketingImport: jest.fn(async () => undefined) } as never,
     );
-    return { service, rawRepo };
+    return { service, rawRepo, dataImportRepo };
   };
 
   it('marks high-confidence uploads as READY_TO_PROCESS', async () => {
@@ -161,5 +170,23 @@ describe('FileHubService', () => {
     expect(result.payload.objectKey).toBe('project-1/raw-files/file-1/campaigns.csv');
     expect(result.payload.triggeredBy).toBe('file_hub');
     expect(result.payload.correlationId).toBeTruthy();
+  });
+
+  it('reprocesses stuck PROCESSING files after resetting state and republishing the job', async () => {
+    const { service, rawRepo, dataImportRepo } = createService({
+      status: RawFileStatus.PROCESSING,
+      dataImportId: 'import-1',
+      source: DataSource.APPSFLYER,
+      reportType: ReportType.INSTALLS,
+      needsReview: false,
+      errorMessage: 'previous failure',
+    });
+
+    const result = await service.reprocessFile('project-1', 'file-1');
+
+    expect(rawRepo.resetForReprocess).toHaveBeenCalledWith('project-1', 'file-1');
+    expect(dataImportRepo.resetForReprocess).toHaveBeenCalledWith('project-1', 'import-1');
+    expect(result.rawFile.status).toBe(RawFileStatus.PROCESSING);
+    expect(result.payload.dataImportId).toBe('import-1');
   });
 });

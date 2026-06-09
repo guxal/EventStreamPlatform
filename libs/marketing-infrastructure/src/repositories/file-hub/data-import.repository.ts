@@ -33,6 +33,22 @@ export class DataImportRepository {
     return row ? this.toRecord(row) : null;
   }
 
+  async resetForReprocess(projectId: string, importId: string): Promise<DataImportRecord> {
+    const rows = await this.dataSource.query(
+      `UPDATE data_imports
+       SET status = $3,
+           error_message = NULL,
+           error_stage = NULL,
+           error_summary = NULL,
+           finished_at = NULL,
+           updated_at = NOW()
+       WHERE project_id = $1 AND id = $2
+       RETURNING *`,
+      [projectId, importId, ImportStatus.PENDING],
+    );
+    return this.toRecord(firstQueryRow(rows));
+  }
+
   async updateStatus(projectId: string, importId: string, status: ImportStatus | 'PROCESSING', rowsProcessed?: number): Promise<DataImportRecord> {
     const finished = status === ImportStatus.COMPLETED || status === ImportStatus.FAILED;
     const rows = await this.dataSource.query(

@@ -7,6 +7,15 @@
       "path": "../../libs/marketing-shared"
     },
     {
+      "path": "../../libs/marketing-plugins"
+    },
+    {
+      "path": "../../libs/marketing-infrastructure"
+    },
+    {
+      "path": "../../libs/marketing-application"
+    },
+    {
       "path": "../../libs/core-application"
     },
     {

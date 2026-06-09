@@ -183,6 +183,21 @@ export class RawImportFileRepository {
     return this.toRecord(firstQueryRow(rows));
   }
 
+  async resetForReprocess(projectId: string, fileId: string): Promise<RawImportFileRecord> {
+    const rows = await this.dataSource.query(
+      `UPDATE raw_import_files
+       SET status = $3,
+           error_message = NULL,
+           error_summary = NULL,
+           error_stage = NULL,
+           updated_at = NOW()
+       WHERE project_id = $1 AND id = $2
+       RETURNING *`,
+      [projectId, fileId, RawFileStatus.READY_TO_PROCESS],
+    );
+    return this.toRecord(firstQueryRow(rows));
+  }
+
   async attachDataImport(projectId: string, fileId: string, dataImportId: string): Promise<RawImportFileRecord> {
     const rows = await this.dataSource.query(
       `UPDATE raw_import_files

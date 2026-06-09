@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import axios from 'axios';
 import type { NormalizedAppsFlyerEvent } from '@metrics-platform/marketing-shared';
 
 @Injectable()
@@ -54,7 +55,14 @@ export class ClickHouseMarketingRepository {
     if (!this.endpoint || process.env.CLICKHOUSE_DISABLED === 'true') return;
     const body = rows.map((row) => JSON.stringify(row)).join('\n');
     const query = `INSERT INTO ${table} FORMAT JSONEachRow`;
-    const response = await fetch(`${this.endpoint}/?query=${encodeURIComponent(query)}`, { method: 'POST', body });
-    if (!response.ok) throw new Error(`ClickHouse insert failed for ${table}: ${response.status} ${await response.text()}`);
+    const response = await axios.post(`${this.endpoint}/?query=${encodeURIComponent(query)}`, body, {
+      headers: { 'Content-Type': 'application/json' },
+      validateStatus: () => true,
+    });
+
+    if (response.status < 200 || response.status >= 300) {
+      const errorBody = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+      throw new Error(`ClickHouse insert failed for ${table}: ${response.status} ${errorBody}`);
+    }
   }
 }

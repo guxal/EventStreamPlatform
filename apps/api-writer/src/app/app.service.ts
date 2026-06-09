@@ -120,4 +120,8 @@ export class AppService {
   processProjectFile(projectId: string, fileId: string) {
     return this.fileHubService.requestProcessing(projectId, fileId, 'api-writer');
   }
+
+  reprocessProjectFile(projectId: string, fileId: string) {
+    return this.fileHubService.reprocessFile(projectId, fileId, 'api-writer');
+  }
 }

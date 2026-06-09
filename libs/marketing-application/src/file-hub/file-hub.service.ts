@@ -129,6 +129,40 @@ export class FileHubService {
   }
 
   async requestProcessing(projectId: string, fileId: string, triggeredBy = 'api-writer'): Promise<ProcessRawFileResult> {
+    return this.publishProcessingJob(projectId, fileId, triggeredBy);
+  }
+
+  async reprocessFile(projectId: string, fileId: string, triggeredBy = 'api-writer'): Promise<ProcessRawFileResult> {
+    const rawFile = await this.getFile(projectId, fileId);
+    const reprocessableStatuses = new Set<RawFileStatus>([
+      RawFileStatus.PROCESSING,
+      RawFileStatus.FAILED,
+      RawFileStatus.COMPLETED,
+    ]);
+
+    if (!reprocessableStatuses.has(rawFile.status)) {
+      throw new BadRequestException(
+        `Raw file ${fileId} cannot be reprocessed from status ${rawFile.status}. Allowed: PROCESSING, FAILED, COMPLETED.`,
+      );
+    }
+
+    if (!this.hasValidManualTags(rawFile.source, rawFile.reportType)) {
+      throw new BadRequestException('Unknown files cannot be reprocessed until source and report_type are confirmed');
+    }
+
+    if (rawFile.source !== DataSource.APPSFLYER) {
+      throw new BadRequestException('Only AppsFlyer File Hub files can be reprocessed by this endpoint in V1');
+    }
+
+    await this.rawImportFileRepository.resetForReprocess(projectId, fileId);
+    if (rawFile.dataImportId) {
+      await this.dataImportRepository.resetForReprocess(projectId, rawFile.dataImportId);
+    }
+
+    return this.publishProcessingJob(projectId, fileId, triggeredBy);
+  }
+
+  private async publishProcessingJob(projectId: string, fileId: string, triggeredBy: string): Promise<ProcessRawFileResult> {
     void triggeredBy;
     const rawFile = await this.getFile(projectId, fileId);
     if (rawFile.status !== RawFileStatus.READY_TO_PROCESS) {

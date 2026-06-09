@@ -9,7 +9,7 @@ const EXPORT_LIMITS = new Set([200000, 500000, 1000000]);
 
 @Injectable()
 export class AppsFlyerReportProfilerPlugin {
-  constructor(private readonly csvParser = new AppsFlyerCsvStreamParserPlugin()) {}
+  constructor(private readonly csvParser: AppsFlyerCsvStreamParserPlugin) {}
 
   async profile(input: {
     context: AppsFlyerProcessingContext;

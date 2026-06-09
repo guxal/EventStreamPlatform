@@ -216,6 +216,19 @@ export class AppController {
     return this.appService.processProjectFile(projectId, fileId);
   }
 
+  @Post('projects/:id/files/:fileId/reprocess')
+  @ApiTags('file-hub')
+  @ApiOperation({
+    summary: 'Reset and republish a stuck or failed File Hub file to the marketing-imports queue',
+    description:
+      'Use when a file is stuck in PROCESSING or FAILED (or you want to rerun a COMPLETED import). Resets raw file and linked data_import to a clean state, then publishes a new worker job.',
+  })
+  @ApiParam({ name: 'id', description: 'Project ID' })
+  @ApiParam({ name: 'fileId', description: 'Raw File Hub file ID' })
+  reprocessProjectFile(@Param('id') projectId: string, @Param('fileId') fileId: string) {
+    return this.appService.reprocessProjectFile(projectId, fileId);
+  }
+
   @Get('projects/:id/imports')
   @ApiTags('imports')
   @ApiOperation({ summary: 'List legacy project imports' })

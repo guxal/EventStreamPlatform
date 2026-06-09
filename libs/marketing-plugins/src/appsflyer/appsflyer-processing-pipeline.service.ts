@@ -27,13 +27,13 @@ export const SUPPORTED_APPSFLYER_REPORT_TYPES = new Set<ReportType>([
 @Injectable()
 export class AppsFlyerProcessingPipelineService {
   constructor(
-    private readonly profiler = new AppsFlyerReportProfilerPlugin(),
-    private readonly parser = new AppsFlyerCsvStreamParserPlugin(),
-    private readonly mapper = new AppsFlyerColumnMapper(),
-    private readonly eventValueParser = new AppsFlyerEventValueParserPlugin(),
-    private readonly normalizer = new AppsFlyerNormalizerPlugin(),
-    private readonly kpiCalculator = new AppsFlyerKpiCalculatorPlugin(),
-    private readonly factsPlugin = new AppsFlyerFactsPlugin(),
+    private readonly profiler: AppsFlyerReportProfilerPlugin,
+    private readonly parser: AppsFlyerCsvStreamParserPlugin,
+    private readonly mapper: AppsFlyerColumnMapper,
+    private readonly eventValueParser: AppsFlyerEventValueParserPlugin,
+    private readonly normalizer: AppsFlyerNormalizerPlugin,
+    private readonly kpiCalculator: AppsFlyerKpiCalculatorPlugin,
+    private readonly factsPlugin: AppsFlyerFactsPlugin,
   ) {}
 
   async execute(input: AppsFlyerPipelineInput): Promise<AppsFlyerPipelineResult> {
@@ -64,7 +64,11 @@ export class AppsFlyerProcessingPipelineService {
     void pipeline(stream, async function* (source: AsyncIterable<unknown>) {
       for await (const chunk of source) { a.write(chunk); b.write(chunk); yield chunk; }
       a.end(); b.end();
-    }).catch((error: unknown) => { a.destroy(error); b.destroy(error); });
+    }).catch((error: unknown) => {
+      const destroyError = error instanceof Error ? error : new Error(String(error));
+      a.destroy(destroyError);
+      b.destroy(destroyError);
+    });
     return [a, b];
   }
 }

@@ -6,7 +6,7 @@ import type { AppsFlyerProcessingContext, ParsedEventValueRow } from './appsflye
 
 @Injectable()
 export class AppsFlyerNormalizerPlugin {
-  constructor(private readonly dictionary = new AppsFlyerEventDictionaryPlugin()) {}
+  constructor(private readonly dictionary: AppsFlyerEventDictionaryPlugin) {}
 
   normalize(context: AppsFlyerProcessingContext, row: ParsedEventValueRow): NormalizedAppsFlyerEvent {
     const c = row.canonical;
