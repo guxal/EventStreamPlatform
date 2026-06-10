@@ -197,3 +197,13 @@ User Query → Intent Classifier → Controlled Function → JSON Result → Fin
 
 ## V1 First Milestone (Execution Target)
 Upload a Google Ads CSV, process it with streams, normalize campaigns, store metrics, detect `HIGH_SPEND_ZERO_CONVERSIONS`, and show first insight in dashboard.
+
+
+## Canonical Agent Memory
+`AGENTS.md` is the canonical instruction and implementation-memory file for this repository. Keep this `AGENT.md` file for backward compatibility only; future agents should update `AGENTS.md` first and mirror critical status changes here only when needed.
+
+Latest completed additions to remember:
+- File Hub / Import Hub Bronze Layer is implemented for raw marketing CSV upload, stream profiling, deterministic source/report classification, manual review/tagging, and AppsFlyer-only process triggering.
+- AppsFlyer Medallion processing is implemented from File Hub handoff through streamed worker processing, ClickHouse `marketing.marketing_events`, KPI snapshot, deterministic facts, optional semantic/context enrichment, and facts-first AI outputs.
+- Semantic & Context Layer V1.5 is implemented with PostgreSQL `semantic_entities`, `semantic_relationships`, and `context_objects`; metrics remain in ClickHouse.
+- Process audit tables and AI provider metadata are implemented for stage observability and AI traceability.
