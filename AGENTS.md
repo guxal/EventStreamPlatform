@@ -60,6 +60,42 @@ We are extending the existing EventStream Platform into an AI Marketing Copilot 
 - Preserved existing metrics endpoints under `/metrics` and merged them into root reader controller.
 - Added reader DTO/types for dashboard/campaign/keyword/chat payloads.
 
+
+## Epic 10 Status (Completed) — File Hub / Import Hub Bronze Layer
+- Backend File Hub foundation implemented as the raw-file control center before worker processing.
+- Upload behavior is now: upload CSV → object storage → stream profile → deterministic classification → manual review when needed → process only when `READY_TO_PROCESS`.
+- API Writer endpoints added under `/api/projects/:id/files` for upload, list, detail, manual tagging, and processing trigger.
+- Swagger tag `file-hub` added so Bronze Layer endpoints are separated from core `events`, `projects`, and legacy `imports` docs.
+- `FileHubService`, `FileProfilerService`, and `ReportClassifierService` added in `marketing-application`.
+- `ObjectStorageService.getObjectStream`, `RawImportFileRepository`, `DataImportRepository`, and project/file-hub repositories added in `marketing-infrastructure`.
+- PostgreSQL migration `005_extend_raw_import_files_for_file_hub.sql` extends raw file metadata for profile, classification, tags, statuses, checksum, storage, and processing linkage.
+- File Hub currently permits processing only for AppsFlyer files with known source/report type; Google Ads processing and AppsFlyer + Google Ads joins remain future work.
+
+## Epic 11 Status (Completed) — AppsFlyer Medallion Processing Slice
+- AppsFlyer worker path now starts from the File Hub process trigger and consumes `marketing-imports/process-marketing-import` jobs.
+- Stream-only object-storage processing implemented: object stream → AppsFlyer CSV parser → mapper → Event Value parser → normalizer → ClickHouse bulk insert.
+- AppsFlyer plugin pipeline added in `marketing-plugins`: report profiler, stream parser, column mapper, event-value parser, normalizer, event dictionary, KPI calculator, and deterministic facts plugin.
+- Supported AppsFlyer report types include installs, in-app events, non-organic in-app events, postbacks, conversions, blocked reports, ad revenue, and uninstalls.
+- ClickHouse Silver table `marketing.marketing_events` created with `ReplacingMergeTree(created_at)` and logical retry key `(project_id, import_id, row_hash)`.
+- AppsFlyer facts are generated deterministically before AI and persisted to PostgreSQL; AI output generation is attempted only after facts are saved.
+- AppsFlyer-only guardrail: do not generate ROAS/CPA/CAC facts from AppsFlyer alone because it is not treated as a reliable cost source in V1.
+- Worker failure handling now stores status/error summaries on `data_imports` and `raw_import_files`, including error stages for Bronze, Silver, Gold, semantic/context, and AI phases.
+
+## Epic 12 Status (Completed) — Semantic & Context Layer V1.5
+- New PostgreSQL semantic/context layer added for AI Marketing Copilot / Atlas AI while keeping metrics in ClickHouse.
+- Migration `010_create_semantic_context_layer.sql` creates `semantic_entities`, `semantic_relationships`, and `context_objects`.
+- `detected_facts` now supports semantic enrichment via `semantic_entity_id`, `related_semantic_entity_ids`, and `context_object_ids`.
+- `SemanticBuilderService`, AppsFlyer semantic adapter, and semantic repositories upsert source-aware entities/relationships from deterministic facts and KPI summaries.
+- `ContextBuilderService` builds bounded context objects from import facts/KPIs for later AI grounding.
+- `AiContextBuilderService` filters facts by controlled dimensions, redacts raw/CSV fields, bounds context payload size, and includes semantic entities, relationships, context objects, warnings, and unavailable metrics.
+- Semantic/context build steps are optional by default; set `SEMANTIC_CONTEXT_STRICT=true` only when failures should fail the import.
+
+## Epic 13 Status (Completed) — Process Audit & AI Provider Metadata
+- PostgreSQL migration `008_create_marketing_process_audit.sql` adds `marketing_process_runs` and `marketing_process_steps` for stage-level observability.
+- AppsFlyer worker wraps validation, Bronze, Silver, Gold, semantic/context, and AI output generation in audited steps.
+- PostgreSQL migration `009_extend_ai_outputs_provider_metadata.sql` adds provider/model/prompt metadata support for recommendations and reports.
+- AI provider layer added with mock, OpenAI, Claude, and Gemini provider abstractions; mock remains suitable for deterministic/local tests.
+
 ## Existing Core (Do Not Rebuild)
 - NestJS + Nx monorepo
 - `apps/api-writer`
@@ -130,13 +166,13 @@ Rule for future changes:
   - code symbols: `Marketing*`
   - DB objects: `marketing_*` where applicable.
 
-## Required New Libraries (Planned)
-- `libs/marketing-shared`
-- `libs/marketing-application`
-- `libs/marketing-infrastructure`
-- `libs/marketing-plugins`
+## Marketing Libraries (Implemented)
+- `libs/marketing-shared` — contracts, enums, file-hub/Appsflyer/Semantic types.
+- `libs/marketing-application` — File Hub orchestration, AI services/providers, semantic/context builders.
+- `libs/marketing-infrastructure` — repositories, object storage, ClickHouse/PostgreSQL adapters.
+- `libs/marketing-plugins` — deterministic analysis rules and AppsFlyer processing pipeline.
 
-## PostgreSQL Tables (Planned)
+## PostgreSQL Tables (Implemented / V1-V1.5)
 - `projects`
 - `integrations`
 - `data_imports`
@@ -148,10 +184,16 @@ Rule for future changes:
 - `ai_reports`
 - `exchange_rates`
 - `project_privacy_settings`
+- `marketing_process_runs`
+- `marketing_process_steps`
+- `semantic_entities`
+- `semantic_relationships`
+- `context_objects`
 
-## ClickHouse Tables (Planned)
+## ClickHouse Tables (Implemented)
 - `marketing_daily_metrics`
 - `marketing_metric_snapshots`
+- `marketing.marketing_events`
 
 Recommended metric schema columns:
 - project_id
@@ -243,6 +285,40 @@ Use controlled intents:
 
 Flow:
 User Query → Intent Classifier → Controlled Function → JSON Result → Final LLM Response
+
+
+## Latest Implementation Notes — File Hub / Bronze Layer
+- File Hub is the canonical raw-file entrypoint. Do not bypass it for new marketing CSV upload flows unless maintaining legacy endpoints.
+- Raw files must be stored and profiled before processing; unknown or low-confidence files must move to `NEEDS_REVIEW`, not the worker queue.
+- Current raw file lifecycle: `UPLOADED` → `PROFILING` → `PROFILED` → `READY_TO_PROCESS` or `NEEDS_REVIEW` → `PROCESSING` → `COMPLETED`/`FAILED`.
+- Manual tagging endpoint can set source/report type and move the file to `READY_TO_PROCESS` when values are known.
+- Processing endpoint creates/reuses `data_imports`, links `raw_import_files.data_import_id`, sets raw file `PROCESSING`, and publishes BullMQ job `process-marketing-import` on `marketing-imports`.
+- Current process trigger is AppsFlyer-only; reject unknown report types and non-AppsFlyer sources before worker execution.
+- File Hub docs live in `docs/architecture/file-hub-bronze-layer.md`; keep that document and this AGENTS memory in sync when behavior changes.
+
+## Latest Implementation Notes — AppsFlyer Medallion Layer
+- Current backend flow: File Hub process trigger → worker stream read → AppsFlyer plugins → ClickHouse `marketing.marketing_events` → KPI snapshot → PostgreSQL `detected_facts` → optional semantic/context enrichment → optional facts-first AI outputs.
+- Bronze responsibilities: raw upload/profile/classification/status metadata.
+- Silver responsibilities: normalized AppsFlyer events in ClickHouse, row hashes, event timestamps, media source/campaign/event dimensions, and idempotency metadata.
+- Gold responsibilities: KPI snapshots, deterministic facts, process audit summaries, and AI-ready fact/context bundles.
+- For retry/idempotency hardening, prefer import-replace before reinsert for `marketing_events`; use `FINAL` only where query correctness requires collapsing ReplacingMergeTree duplicates.
+- Keep processing stream-based. Do not write full temporary CSV files to container disk for large AppsFlyer exports.
+- Event Value parsing must be defensive: parse JSON when valid, extract monetary keys such as `amount`/`af_revenue`/`revenue`, record row warnings for malformed values, and never fail the full import for one bad row.
+- Preserve `event_time`, `install_time`, and `attributed_touch_time` for delayed-reward attribution and future Gold recomputation.
+- AppsFlyer Medallion notes live in `docs/architecture/appsflyer-medallion-implementation-notes.md`; keep that document and this AGENTS memory in sync when behavior changes.
+
+## Latest Implementation Notes — Semantic & Context Layer
+- This layer stores semantic knowledge in PostgreSQL only; metrics and event time series remain in ClickHouse.
+- Use `semantic_entities` for canonical entities/aliases/sources/metadata, `semantic_relationships` for source-aware links, and `context_objects` for bounded AI grounding text.
+- Semantic enrichment links facts back to semantic objects through `detected_facts.semantic_entity_id`, `related_semantic_entity_ids`, and `context_object_ids`.
+- AI context must remain facts-first and bounded: filter by controlled dimensions, include unavailable metrics and warnings, and redact raw/CSV fields before provider calls.
+- Semantic/context enrichment is optional unless `SEMANTIC_CONTEXT_STRICT=true`; optional failures should not block an otherwise valid import.
+
+## Latest Implementation Notes — AI Providers and Guardrails
+- AI outputs must be generated only from detected facts plus bounded KPI/semantic/context extras.
+- Provider abstractions exist for mock, OpenAI, Claude, and Gemini; do not instantiate providers directly in feature code when the factory/orchestrator is available.
+- Store provider/model/prompt metadata with AI outputs for traceability.
+- Continue preserving insufficient-data behavior when facts are empty or when required metrics are unavailable.
 
 ## V1 First Milestone (Execution Target)
 Upload a Google Ads CSV, process it with streams, normalize campaigns, store metrics, detect `HIGH_SPEND_ZERO_CONVERSIONS`, and show first insight in dashboard.
