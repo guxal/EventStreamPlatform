@@ -12,10 +12,14 @@ export class AppsFlyerKpiCalculatorPlugin {
     let eventAmountInJsonCount = 0;
     let eventRevenueEmptyCount = 0;
     let eventRevenuePresentCount = 0;
+    let periodStart: string | null = null;
+    let periodEnd: string | null = null;
 
     const result: AppsFlyerKpiResult = {
       totalRowsProcessed,
       totalNormalizedEvents: events.length,
+      periodStart: null,
+      periodEnd: null,
       eventsByReportType: {},
       eventsByEventName: {},
       eventsByCanonicalEventName: {},
@@ -61,6 +65,10 @@ export class AppsFlyerKpiCalculatorPlugin {
     };
 
     for (const event of events) {
+      if (event.eventDate) {
+        periodStart = periodStart === null || event.eventDate < periodStart ? event.eventDate : periodStart;
+        periodEnd = periodEnd === null || event.eventDate > periodEnd ? event.eventDate : periodEnd;
+      }
       this.increment(result.eventsByReportType, String(event.reportType));
       this.increment(result.eventsByEventName, event.eventName || 'unknown');
       this.increment(result.eventsByCanonicalEventName, event.canonicalEventName);
@@ -119,6 +127,8 @@ export class AppsFlyerKpiCalculatorPlugin {
       }
     }
 
+    result.periodStart = periodStart;
+    result.periodEnd = periodEnd;
     result.uniqueUsers = userIds.size;
     result.uniqueAppsFlyerIds = appsFlyerIds.size;
     result.uniqueCustomerUserIds = customerUserIds.size;

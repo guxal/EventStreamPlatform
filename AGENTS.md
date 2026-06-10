@@ -297,11 +297,11 @@ User Query → Intent Classifier → Controlled Function → JSON Result → Fin
 - File Hub docs live in `docs/architecture/file-hub-bronze-layer.md`; keep that document and this AGENTS memory in sync when behavior changes.
 
 ## Latest Implementation Notes — AppsFlyer Medallion Layer
-- Current backend flow: File Hub process trigger → worker stream read → AppsFlyer plugins → ClickHouse `marketing.marketing_events` → KPI snapshot → PostgreSQL `detected_facts` → optional semantic/context enrichment → optional facts-first AI outputs.
+- Current backend flow: File Hub process trigger → worker stream read → AppsFlyer plugins → ClickHouse `marketing.marketing_events` → KPI snapshot in `marketing.marketing_metric_snapshots` (with import-linked AppsFlyer KPI context) → PostgreSQL `detected_facts` → optional semantic/context enrichment → optional facts-first AI outputs.
 - Bronze responsibilities: raw upload/profile/classification/status metadata.
 - Silver responsibilities: normalized AppsFlyer events in ClickHouse, row hashes, event timestamps, media source/campaign/event dimensions, and idempotency metadata.
 - Gold responsibilities: KPI snapshots, deterministic facts, process audit summaries, and AI-ready fact/context bundles.
-- For retry/idempotency hardening, prefer import-replace before reinsert for `marketing_events`; use `FINAL` only where query correctness requires collapsing ReplacingMergeTree duplicates.
+- For retry/idempotency hardening, prefer import-replace before reinsert for `marketing_events`; use `FINAL` only where query correctness requires collapsing ReplacingMergeTree duplicates. ClickHouse must be configured for worker processing; do not silently complete AppsFlyer imports without Silver/Gold writes.
 - Keep processing stream-based. Do not write full temporary CSV files to container disk for large AppsFlyer exports.
 - Event Value parsing must be defensive: parse JSON when valid, extract monetary keys such as `amount`/`af_revenue`/`revenue`, record row warnings for malformed values, and never fail the full import for one bad row.
 - Preserve `event_time`, `install_time`, and `attributed_touch_time` for delayed-reward attribution and future Gold recomputation.

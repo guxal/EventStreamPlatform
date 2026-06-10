@@ -14,6 +14,8 @@ export type AppsFlyerImportSummary = {
   factsGenerated: number;
   recommendationsGenerated: number;
   reportsGenerated: number;
+  /** KPIs live in ClickHouse and are attached by the API reader service when available. */
+  kpiSnapshot?: unknown;
   processingStartedAt: string | null;
   processingCompletedAt: string | null;
   errorStage: string | null;

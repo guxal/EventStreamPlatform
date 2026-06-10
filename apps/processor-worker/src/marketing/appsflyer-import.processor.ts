@@ -138,7 +138,7 @@ export class AppsFlyerImportProcessor implements OnModuleInit {
       await this.dataImportRepository.updateStatus(payload.projectId, payload.dataImportId, ImportStatus.PROCESSING_GOLD, result.events.length);
       await this.runAuditedStep(auditRunId, payload, AppsFlyerProcessingErrorStage.GOLD_KPI_CALCULATION, 'ClickHouseMarketingRepository.insertMetricSnapshot', async () => {
         await this.clickHouseRepository.insertMetricSnapshot(payload.projectId, payload.dataImportId, result.kpis as unknown as Record<string, unknown>);
-        return { snapshotStored: true, kpis: result.kpis };
+        return { snapshotStored: true, kpiSummary: this.toKpiAuditSummary(result.kpis as unknown as Record<string, unknown>) };
       });
 
       await this.runAuditedStep(auditRunId, payload, AppsFlyerProcessingErrorStage.GOLD_FACT_GENERATION, 'DetectedFactRepository.saveMany', async () => {
@@ -251,7 +251,7 @@ export class AppsFlyerImportProcessor implements OnModuleInit {
         await this.processAuditRepository.completeStep(step.id, value.summary ?? {});
         return value.result;
       }
-      await this.processAuditRepository.completeStep(step.id, {});
+      await this.processAuditRepository.completeStep(step.id, this.toOutputSummary(value));
       return value as T;
     } catch (error) {
       await this.processAuditRepository.failStep(step.id, (error as Error).message, { stage, serviceName });
@@ -261,6 +261,31 @@ export class AppsFlyerImportProcessor implements OnModuleInit {
 
   private isAuditedResult<T>(value: unknown): value is { result: T; summary?: Record<string, unknown> } {
     return Boolean(value && typeof value === 'object' && 'result' in value);
+  }
+
+  private toOutputSummary(value: unknown): Record<string, unknown> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    return value as Record<string, unknown>;
+  }
+
+  private toKpiAuditSummary(kpis: Record<string, unknown>): Record<string, unknown> {
+    return {
+      totalRowsProcessed: kpis.totalRowsProcessed,
+      totalNormalizedEvents: kpis.totalNormalizedEvents,
+      periodStart: kpis.periodStart,
+      periodEnd: kpis.periodEnd,
+      conversions: this.number(kpis.registrations) + this.number(kpis.deposits) + this.number(kpis.firstDeposits),
+      conversionValue: this.number(kpis.depositAmount),
+      registrations: kpis.registrations,
+      deposits: kpis.deposits,
+      firstDeposits: kpis.firstDeposits,
+      unavailableMetrics: kpis.unavailableMetrics,
+    };
+  }
+
+  private number(value: unknown): number {
+    const parsed = Number(value ?? 0);
+    return Number.isFinite(parsed) ? parsed : 0;
   }
 
   private async validatePayload(payload: MarketingImportProcessJobPayload): Promise<void> {

@@ -90,8 +90,23 @@ Responsibilities:
 - The mapper tolerates AppsFlyer header casing, spaces, underscores, hyphens, and minor naming variants.
 - The Event Value parser extracts `amount` from JSON when present and keeps malformed values as row warnings.
 - The normalizer emits ClickHouse-compatible `marketing_events` rows with `row_hash`.
-- The KPI calculator computes AppsFlyer-safe event, user, blocked traffic, deposit, FTD, and bet amount summaries without ROAS.
+- The KPI calculator computes AppsFlyer-safe event, user, blocked traffic, deposit, FTD, bet amount summaries, and the source event-date period without ROAS.
 - The facts plugin converts profile/KPI signals into deterministic `DetectedFact` payloads.
+
+
+## Gold Layer: KPI snapshots
+
+AppsFlyer KPI snapshots are written to ClickHouse table `marketing.marketing_metric_snapshots` during `GOLD_KPI_CALCULATION`.
+
+For AppsFlyer-only imports, the snapshot stores:
+
+- `source_run_id = data_imports.id` so the reader can attach KPIs to `GET /projects/:id/appsflyer/imports/:importId/summary`.
+- `period_start`, `period_end`, and `as_of_date` from the normalized AppsFlyer event-date range, with a processing-date fallback only when no event dates are available.
+- `conversions = registrations + deposits + first_deposits`.
+- `conversion_value = depositAmount`.
+- The full AppsFlyer-safe KPI payload in `context_metadata` for event/user/media-source/campaign/country/platform summaries and unavailable cost metrics.
+
+ClickHouse writes are required for AppsFlyer processing. If ClickHouse is not configured, the worker fails the import instead of silently completing with PostgreSQL facts but missing Silver/Gold KPI data.
 
 ## Silver Layer: `marketing.marketing_events`
 
