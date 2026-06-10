@@ -19,5 +19,13 @@
     "eslint.config.js",
     "eslint.config.cjs",
     "eslint.config.mjs"
+  ],
+  "references": [
+    {
+      "path": "../../libs/marketing-infrastructure/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/core-infrastructure/tsconfig.lib.json"
+    }
   ]
 }

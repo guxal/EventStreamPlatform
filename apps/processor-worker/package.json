@@ -29,7 +29,7 @@
         ],
         "options": {
           "buildTarget": "@metrics-platform/processor-worker:build",
-          "runBuildTargetDependencies": false
+          "runBuildTargetDependencies": true
         },
         "configurations": {
           "development": {

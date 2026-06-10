@@ -48,6 +48,28 @@ docker exec -i metrics-platform-postgres-1 psql -U metrics -d metricsdb \
 docker exec -i metrics-platform-postgres-1 psql -U metrics -d metricsdb \
   < apps/processor-worker/src/database/migrations/007_widen_data_imports_status.sql
 
+docker exec -i metrics-platform-postgres-1 psql -U metrics -d metricsdb \
+  < apps/processor-worker/src/database/migrations/008_create_marketing_process_audit.sql
+
+docker exec -i metrics-platform-postgres-1 psql -U metrics -d metricsdb \
+  < apps/processor-worker/src/database/migrations/009_extend_ai_outputs_provider_metadata.sql
+
+docker exec -i metrics-platform-postgres-1 psql -U metrics -d metricsdb \
+  < apps/processor-worker/src/database/migrations/010_create_semantic_context_layer.sql
+
+// ClickHouse Cloud (.env)
+// CLICKHOUSE_URL=https://<host>:8443
+// CLICKHOUSE_USER=default
+// CLICKHOUSE_PASSWORD=<password>
+// npm install (installs @clickhouse/client at repo root)
+
+// if serve fails with "Cannot find module dist/libs/core-infrastructure":
+// rm -rf dist && nx serve api-writer
+// or: nx reset && nx serve api-writer
+
+// if serve fails with "Cannot find module './repositories/metrics.repository'":
+// stale dist — same fix: rm -rf dist && nx serve api-writer
+
 // reprocess a stuck File Hub file (Swagger)
 // POST /api/projects/{projectId}/files/{fileId}/reprocess
 

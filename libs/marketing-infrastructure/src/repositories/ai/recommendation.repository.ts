@@ -23,7 +23,7 @@ export class RecommendationRepository {
 
   async saveMany(items: RecommendationRecord[]): Promise<RecommendationRecord[]> {
     for (const item of items) {
-      const metadata = { factType: item.factType, ...(item.metadata ?? {}) };
+      const metadata: Record<string, unknown> = { factType: item.factType, ...(item.metadata ?? {}) };
       await this.dataSource.query(
         `INSERT INTO recommendations (
            id, project_id, title, body, priority, model_name, model_version, metadata,

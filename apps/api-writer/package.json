@@ -29,7 +29,7 @@
         ],
         "options": {
           "buildTarget": "@metrics-platform/api-writer:build",
-          "runBuildTargetDependencies": false
+          "runBuildTargetDependencies": true
         },
         "configurations": {
           "development": {

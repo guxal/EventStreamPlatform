@@ -71,7 +71,7 @@ export class AiProviderError extends Error {
       | 'AI_UNSUPPORTED_PROVIDER'
       | 'AI_SCHEMA_VALIDATION_FAILED',
     message: string,
-    public readonly cause?: unknown,
+    public override readonly cause?: unknown,
   ) {
     super(message);
   }

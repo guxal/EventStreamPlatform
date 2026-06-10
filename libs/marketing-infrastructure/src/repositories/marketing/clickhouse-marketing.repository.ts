@@ -1,12 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import axios from 'axios';
 import type { NormalizedAppsFlyerEvent } from '@metrics-platform/marketing-shared';
+import { getClickHouseClient, isClickHouseEnabled } from '../../database/clickhouse-client.factory';
 
 @Injectable()
 export class ClickHouseMarketingRepository {
-  private readonly endpoint = process.env.CLICKHOUSE_URL || process.env.CLICKHOUSE_HTTP_URL || '';
-
   async insertMarketingEvents(events: NormalizedAppsFlyerEvent[]): Promise<void> {
     if (events.length === 0) return;
     const rows = events.map((event) => ({
@@ -47,25 +45,31 @@ export class ClickHouseMarketingRepository {
 
   async insertMetricSnapshot(projectId: string, importId: string, kpis: Record<string, unknown>): Promise<void> {
     await this.insertJsonEachRow('marketing.marketing_metric_snapshots', [{
-      snapshot_id: randomUUID(), project_id: projectId, entity_id: projectId, entity_type: 'account', as_of_date: new Date().toISOString().slice(0, 10), period_start: new Date().toISOString().slice(0, 10), period_end: new Date().toISOString().slice(0, 10), context_metadata: JSON.stringify(kpis), source_run_id: importId,
+      snapshot_id: randomUUID(),
+      project_id: projectId,
+      entity_id: projectId,
+      entity_type: 'account',
+      as_of_date: new Date().toISOString().slice(0, 10),
+      period_start: new Date().toISOString().slice(0, 10),
+      period_end: new Date().toISOString().slice(0, 10),
+      context_metadata: JSON.stringify(kpis),
+      source_run_id: importId,
     }]);
   }
 
   private async insertJsonEachRow(table: string, rows: Record<string, unknown>[], batchSize = 1000): Promise<void> {
-    if (!this.endpoint || process.env.CLICKHOUSE_DISABLED === 'true') return;
+    if (!isClickHouseEnabled() || rows.length === 0) return;
+
+    const client = getClickHouseClient();
+    if (!client) return;
+
     for (let index = 0; index < rows.length; index += batchSize) {
       const batch = rows.slice(index, index + batchSize);
-      const body = batch.map((row) => JSON.stringify(row)).join('\n');
-      const query = `INSERT INTO ${table} FORMAT JSONEachRow`;
-      const response = await axios.post(`${this.endpoint}/?query=${encodeURIComponent(query)}`, body, {
-        headers: { 'Content-Type': 'application/json' },
-        validateStatus: () => true,
+      await client.insert({
+        table,
+        values: batch,
+        format: 'JSONEachRow',
       });
-
-      if (response.status < 200 || response.status >= 300) {
-        const errorBody = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-        throw new Error(`ClickHouse insert failed for ${table}: ${response.status} ${errorBody}`);
-      }
     }
   }
 }

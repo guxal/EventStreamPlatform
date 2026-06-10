@@ -35,7 +35,9 @@ const repositories = [
   FactsReaderRepository,
   RecommendationsReaderRepository,
   ReportsReaderRepository,
+  ContextObjectRepository,
   SemanticEntityRepository,
+  SemanticRelationshipRepository,
 ];
 
 @Module({
