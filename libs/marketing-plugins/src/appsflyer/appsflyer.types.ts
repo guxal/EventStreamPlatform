@@ -48,6 +48,8 @@ export type AppsFlyerPipelineInput = {
 export type AppsFlyerKpiResult = {
   totalRowsProcessed: number;
   totalNormalizedEvents: number;
+  periodStart: string | null;
+  periodEnd: string | null;
   eventsByReportType: Record<string, number>;
   eventsByEventName: Record<string, number>;
   eventsByCanonicalEventName: Record<string, number>;

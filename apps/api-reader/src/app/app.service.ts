@@ -4,6 +4,7 @@ import { GetMetricQuery, ListMetricsQuery } from '@metrics-platform/core-applica
 import {
   AiReportRepository,
   AppsFlyerEventsRepository,
+  AppsFlyerSnapshotsRepository,
   DataImportsReaderRepository,
   DetectedFactRepository,
   ProcessAuditRepository,
@@ -24,6 +25,7 @@ export class AppService {
     private readonly aiReportRepository: AiReportRepository,
     private readonly processAuditRepository: ProcessAuditRepository,
     private readonly appsFlyerEventsRepository: AppsFlyerEventsRepository,
+    private readonly appsFlyerSnapshotsRepository: AppsFlyerSnapshotsRepository,
     private readonly dataImportsReaderRepository: DataImportsReaderRepository,
     private readonly semanticEntityRepository: SemanticEntityRepository,
     private readonly semanticRelationshipRepository: SemanticRelationshipRepository,
@@ -86,9 +88,12 @@ export class AppService {
   }
 
   async getAppsFlyerImportSummary(projectId: string, importId: string) {
-    const summary = await this.dataImportsReaderRepository.getAppsFlyerImportSummary(projectId, importId);
+    const [summary, kpiSnapshot] = await Promise.all([
+      this.dataImportsReaderRepository.getAppsFlyerImportSummary(projectId, importId),
+      this.appsFlyerSnapshotsRepository.getLatestByImport(projectId, importId),
+    ]);
     if (!summary) throw new NotFoundException(`Import ${importId} not found for project ${projectId}`);
-    return summary;
+    return { ...summary, kpiSnapshot };
   }
 
   async getAppsFlyerEventsByName(projectId: string, filters: AppsFlyerEventFilters = {}) {

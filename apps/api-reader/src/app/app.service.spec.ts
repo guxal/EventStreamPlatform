@@ -3,6 +3,7 @@ import { QueryBus } from '@nestjs/cqrs';
 import {
   AiReportRepository,
   AppsFlyerEventsRepository,
+  AppsFlyerSnapshotsRepository,
   DataImportsReaderRepository,
   DetectedFactRepository,
   ProcessAuditRepository,
@@ -26,6 +27,7 @@ describe('AppService', () => {
         { provide: AiReportRepository, useValue: { listByProject: jest.fn().mockResolvedValue([]) } },
         { provide: ProcessAuditRepository, useValue: { listRunsByProject: jest.fn().mockResolvedValue([]), getRunWithSteps: jest.fn(), getLatestRunByImport: jest.fn() } },
         { provide: AppsFlyerEventsRepository, useValue: { getOverview: jest.fn().mockResolvedValue({ totalEvents: 0, registrations: 0, deposits: 0, firstDeposits: 0, depositAmount: 0, unavailableMetrics: [] }) } },
+        { provide: AppsFlyerSnapshotsRepository, useValue: { getLatestByImport: jest.fn().mockResolvedValue(null) } },
         { provide: DataImportsReaderRepository, useValue: { getAppsFlyerImportSummary: jest.fn() } },
         { provide: SemanticEntityRepository, useValue: { searchEntities: jest.fn().mockResolvedValue([]) } },
         { provide: SemanticRelationshipRepository, useValue: { searchRelationships: jest.fn().mockResolvedValue([]) } },
