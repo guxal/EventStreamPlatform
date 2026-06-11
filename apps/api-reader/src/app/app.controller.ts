@@ -44,6 +44,28 @@ export class AppController {
     return this.appService.getEntitiesPerformance(projectId, { source });
   }
 
+  @Get('projects/:id/events/by-name')
+  getEventsByName(
+    @Param('id') projectId: string,
+    @Query('source') source?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('importId') importId?: string,
+    @Query('import_id') import_id?: string,
+    @Query('reportType') reportType?: string,
+    @Query('report_type') report_type?: string,
+  ) {
+    if (source && source.toLowerCase() !== 'appsflyer') return [];
+    return this.appService.getAppsFlyerEventsByName(projectId, { from, to, importId: importId ?? import_id, reportType: reportType ?? report_type });
+  }
+
+  @Get('projects/:id/traffic-quality/blocked')
+  getBlockedTraffic(@Param('id') projectId: string, @Query('source') source?: string) {
+    if (source && source.toLowerCase() !== 'appsflyer') return {};
+    return this.appService.getAppsFlyerBlockedTraffic(projectId);
+  }
+
+
   @Get('projects/:id/appsflyer/overview')
   getAppsFlyerOverview(@Param('id') projectId: string) {
     return this.appService.getAppsFlyerOverview(projectId);
@@ -130,6 +152,8 @@ export class AppController {
     @Query('entity_id') entity_id?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('analysisRunId') analysisRunId?: string,
+    @Query('analysis_run_id') analysis_run_id?: string,
     @Query('includeSemantic') includeSemantic?: string,
     @Query('include_semantic') include_semantic?: string,
   ) {
@@ -144,6 +168,7 @@ export class AppController {
       entityId: entityId ?? entity_id,
       from,
       to,
+      analysisRunId: analysisRunId ?? analysis_run_id,
       includeSemantic: includeSemantic ?? include_semantic,
     });
   }
@@ -160,6 +185,8 @@ export class AppController {
     @Query('generation_status') generation_status?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('analysisRunId') analysisRunId?: string,
+    @Query('analysis_run_id') analysis_run_id?: string,
     @Query('includeSemantic') includeSemantic?: string,
     @Query('include_semantic') include_semantic?: string,
   ) {
@@ -170,6 +197,7 @@ export class AppController {
       generationStatus: generationStatus ?? generation_status,
       from,
       to,
+      analysisRunId: analysisRunId ?? analysis_run_id,
       includeSemantic: includeSemantic ?? include_semantic,
     });
   }
@@ -224,6 +252,28 @@ export class AppController {
     return this.appService.listContextObjects(projectId, { source, contextType: contextType ?? context_type, entityId: entityId ?? entity_id, reportType: reportType ?? report_type, validAt: validAt ?? valid_at });
   }
 
+  @Get('projects/:id/analysis-runs')
+  listAnalysisRuns(
+    @Param('id') projectId: string,
+    @Query('source') source?: string,
+    @Query('reportType') reportType?: string,
+    @Query('report_type') report_type?: string,
+    @Query('importId') importId?: string,
+    @Query('import_id') import_id?: string,
+    @Query('status') status?: string,
+    @Query('analysisType') analysisType?: string,
+    @Query('analysis_type') analysis_type?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.appService.listAnalysisRuns(projectId, { source, reportType: reportType ?? report_type, importId: importId ?? import_id, status, analysisType: analysisType ?? analysis_type, from, to });
+  }
+
+  @Get('projects/:id/analysis-runs/:analysisRunId')
+  getAnalysisRun(@Param('id') projectId: string, @Param('analysisRunId') analysisRunId: string) {
+    return this.appService.getAnalysisRun(projectId, analysisRunId);
+  }
+
   @Get('projects/:id/processes')
   listProcesses(@Param('id') projectId: string, @Query('limit') limit?: string) {
     return this.appService.listProjectProcesses(projectId, limit);
@@ -237,6 +287,11 @@ export class AppController {
   @Get('projects/:id/imports/:importId/flow')
   getImportFlow(@Param('id') projectId: string, @Param('importId') importId: string) {
     return this.appService.getImportFlow(projectId, importId);
+  }
+
+  @Post('projects/:id/questions')
+  askQuestion(@Param('id') projectId: string, @Body() payload: AiChatPayload) {
+    return this.appService.askQuestion(projectId, payload);
   }
 
   @Post('projects/:id/ai-chat')

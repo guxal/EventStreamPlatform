@@ -15,8 +15,8 @@ export class AiReportRepository {
       `INSERT INTO ai_reports (
          id, project_id, report_type, title, content_markdown, model_name, model_version, metadata,
          provider, source, source_report_type, import_id, raw_file_id, raw_ai_output, generation_status,
-         error_message, related_fact_ids, related_entity_ids
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12::uuid, $13::uuid, $14::jsonb, $15, $16, $17::text[], $18::text[])
+         error_message, related_fact_ids, related_entity_ids, analysis_run_id, model
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12::uuid, $13::uuid, $14::jsonb, $15, $16, $17::text[], $18::text[], $19::uuid, $20)
        ON CONFLICT (id) DO NOTHING`,
       [
         item.id,
@@ -30,13 +30,15 @@ export class AiReportRepository {
         metadata.provider ?? item.provider ?? item.modelName,
         metadata.source ?? item.source ?? null,
         metadata.reportType ?? item.sourceReportType ?? null,
-        metadata.importId ?? (Array.isArray(metadata.dataImportIds) ? metadata.dataImportIds[0] : null) ?? null,
-        metadata.rawFileId ?? null,
+        metadata.importId ?? item.importId ?? (Array.isArray(metadata.dataImportIds) ? metadata.dataImportIds[0] : null) ?? null,
+        metadata.rawFileId ?? item.rawFileId ?? null,
         JSON.stringify(metadata.rawAiOutput ?? null),
         metadata.generationStatus ?? item.generationStatus ?? 'COMPLETED',
         metadata.errorMessage ?? item.errorMessage ?? null,
         metadata.relatedFactIds ?? item.relatedFactIds ?? [],
         metadata.relatedEntityIds ?? item.relatedEntityIds ?? [],
+        metadata.analysisRunId ?? item.analysisRunId ?? null,
+        metadata.model ?? item.model ?? item.modelVersion ?? null,
       ],
     );
     return item;
@@ -49,6 +51,7 @@ export class AiReportRepository {
     this.addFilter(clauses, params, 'COALESCE(source_report_type, metadata->>\'reportType\')', filters.reportType);
     this.addFilter(clauses, params, 'COALESCE(import_id::text, metadata->>\'importId\')', filters.importId);
     this.addFilter(clauses, params, 'COALESCE(generation_status, metadata->>\'generationStatus\')', filters.generationStatus);
+    this.addFilter(clauses, params, 'analysis_run_id::text', filters.analysisRunId);
     if (filters.from) { params.push(filters.from); clauses.push(`created_at >= $${params.length}`); }
     if (filters.to) { params.push(filters.to); clauses.push(`created_at <= $${params.length}`); }
     const rows = await this.dataSource.query(`SELECT * FROM ai_reports WHERE ${clauses.join(' AND ')} ORDER BY created_at DESC`, params);
@@ -73,8 +76,11 @@ export class AiReportRepository {
       modelName: row.model_name ?? '',
       modelVersion: row.model_version ?? '',
       provider: row.provider ?? metadata.provider ?? row.model_name ?? '',
-      model: metadata.model ?? row.model_version ?? '',
+      model: row.model ?? metadata.model ?? row.model_version ?? '',
       source: row.source ?? metadata.source,
+      analysisRunId: row.analysis_run_id ?? metadata.analysisRunId,
+      importId: row.import_id ?? metadata.importId ?? (Array.isArray(metadata.dataImportIds) ? metadata.dataImportIds[0] : undefined),
+      rawFileId: row.raw_file_id ?? metadata.rawFileId,
       sourceReportType: row.source_report_type ?? metadata.reportType,
       generationStatus: row.generation_status ?? metadata.generationStatus ?? 'COMPLETED',
       relatedFactIds: row.related_fact_ids ?? metadata.relatedFactIds ?? [],

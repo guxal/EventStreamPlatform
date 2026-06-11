@@ -6,7 +6,9 @@ import { AiContextBuilderService } from '../ai/context';
 import { AiProviderFactory } from '../ai/providers';
 import { RecommendationGeneratorService } from '../ai/recommendation-generator.service';
 import { ReportGeneratorService } from '../ai/report-generator.service';
+import { AiAnalysisRunnerService } from '../ai/analysis';
 import { AiOutputOrchestratorService } from '../ai/orchestration/ai-output-orchestrator.service';
+import { AiQuestionAnsweringService, AiQuestionDataService, AiQuestionIntentRouter } from '../ai/questions';
 import { FileHubService } from '../file-hub/file-hub.service';
 import { FileProfilerService } from '../file-hub/file-profiler.service';
 import { ReportClassifierService } from '../file-hub/report-classifier.service';
@@ -21,6 +23,10 @@ import { AppsFlyerSemanticAdapter, ContextBuilderService, SemanticBuilderService
     RecommendationGeneratorService,
     ReportGeneratorService,
     AiOutputOrchestratorService,
+    AiAnalysisRunnerService,
+    AiQuestionIntentRouter,
+    AiQuestionDataService,
+    AiQuestionAnsweringService,
     FileHubService,
     FileProfilerService,
     ReportClassifierService,
@@ -35,6 +41,10 @@ import { AppsFlyerSemanticAdapter, ContextBuilderService, SemanticBuilderService
     RecommendationGeneratorService,
     ReportGeneratorService,
     AiOutputOrchestratorService,
+    AiAnalysisRunnerService,
+    AiQuestionIntentRouter,
+    AiQuestionDataService,
+    AiQuestionAnsweringService,
     FileHubService,
     FileProfilerService,
     ReportClassifierService,

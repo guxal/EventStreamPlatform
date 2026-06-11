@@ -1,4 +1,7 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query, Res } from '@nestjs/common';
+import { existsSync } from 'fs';
+import { join } from 'path';
+import type { Response } from 'express';
 import { AppService } from './app.service';
 
 @Controller()
@@ -8,6 +11,14 @@ export class AppController {
   @Get()
   getData() {
     return this.appService.getData();
+  }
+
+
+  @Get('ui')
+  getTestUi(@Res() response: Response) {
+    const sourcePath = join(process.cwd(), 'apps/admin/src/assets/atlas-ai-test-ui.html');
+    const distPath = join(__dirname, '..', 'assets', 'atlas-ai-test-ui.html');
+    return response.sendFile(existsSync(sourcePath) ? sourcePath : distPath);
   }
 
   @Get('projects/:id/processes')

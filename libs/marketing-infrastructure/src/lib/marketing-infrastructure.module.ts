@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AnalysisRunRepository } from '../repositories/ai/analysis-run.repository';
 import { AiReportRepository } from '../repositories/ai/ai-report.repository';
 import { RecommendationRepository } from '../repositories/ai/recommendation.repository';
 import { AppsFlyerEventsRepository } from '../repositories/appsflyer/appsflyer-events.repository';
@@ -20,6 +21,7 @@ import { SemanticRelationshipRepository } from '../repositories/semantic/semanti
 import { ObjectStorageService } from '../storage/object-storage.service';
 
 const repositories = [
+  AnalysisRunRepository,
   RecommendationRepository,
   AiReportRepository,
   AppsFlyerEventsRepository,

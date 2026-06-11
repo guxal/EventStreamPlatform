@@ -52,7 +52,7 @@ export class DetectedFactRepository {
     return unwrapQueryRows<Record<string, any>>(rows).length;
   }
 
-  async listByProject(projectId: string, filters: { source?: string; reportType?: string } = {}): Promise<DetectedFact[]> {
+  async listByProject(projectId: string, filters: { source?: string; reportType?: string; importId?: string; rawFileId?: string } = {}): Promise<DetectedFact[]> {
     const rows = await this.dataSource.query('SELECT * FROM detected_facts WHERE project_id = $1 ORDER BY created_at DESC', [projectId]);
     return unwrapQueryRows<Record<string, any>>(rows)
       .map((row) => ({
@@ -70,6 +70,8 @@ export class DetectedFactRepository {
         contextObjectIds: row.context_object_ids ?? [],
       }))
       .filter((fact) => !filters.source || String(fact.metricsSummary.source ?? '').toLowerCase() === filters.source.toLowerCase())
-      .filter((fact) => !filters.reportType || String(fact.metricsSummary.reportType ?? '').toLowerCase() === filters.reportType.toLowerCase());
+      .filter((fact) => !filters.reportType || String(fact.metricsSummary.reportType ?? '').toLowerCase() === filters.reportType.toLowerCase())
+      .filter((fact) => !filters.importId || String(fact.metricsSummary.dataImportId ?? fact.metricsSummary.importId ?? '') === filters.importId)
+      .filter((fact) => !filters.rawFileId || String(fact.metricsSummary.rawFileId ?? '') === filters.rawFileId);
   }
 }

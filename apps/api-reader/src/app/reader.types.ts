@@ -38,5 +38,12 @@ export type KeywordRow = {
 };
 
 export type AiChatPayload = {
-  query: string;
+  query?: string;
+  question?: string;
+  source?: string;
+  reportType?: string;
+  importId?: string;
+  dateRange?: { from?: string; to?: string };
+  provider?: string;
+  model?: string;
 };

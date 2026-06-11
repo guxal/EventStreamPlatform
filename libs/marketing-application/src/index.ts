@@ -12,3 +12,6 @@ export * from './file-hub/file-hub.service';
 export * from './file-hub/file-profiler.service';
 export * from './file-hub/report-classifier.service';
 export * from './semantic';
+
+export * from './ai/analysis';
+export * from './ai/questions';

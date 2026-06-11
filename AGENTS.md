@@ -322,3 +322,17 @@ User Query → Intent Classifier → Controlled Function → JSON Result → Fin
 
 ## V1 First Milestone (Execution Target)
 Upload a Google Ads CSV, process it with streams, normalize campaigns, store metrics, detect `HIGH_SPEND_ZERO_CONVERSIONS`, and show first insight in dashboard.
+
+## Epic 14 Status (Completed) — Explicit AI Analysis Runs & Controlled Questions
+- Added `analysis_runs` as the explicit AI generation process separate from file imports, with QUEUED/RUNNING/COMPLETED/WARNING/FAILED/SKIPPED lifecycle and provider/model audit metadata.
+- API Writer can create manual AI analysis runs under generic `/projects/:id/analysis-runs` and publish `generate-ai-analysis` jobs on the `marketing-analysis` queue.
+- Processor Worker consumes `marketing-analysis` jobs independently from import processing and generates facts-first recommendations/reports from bounded processed context only.
+- AI outputs now link back to `analysis_run_id` and clearly mark mock output as `provider=mock`, `model=mock-local`, `generation_status=MOCKED`.
+- API Reader exposes analysis run list/detail endpoints and controlled question endpoints under `/projects/:id/questions` plus `/projects/:id/ai-chat` compatibility.
+- Controlled questions use deterministic intent routing and bounded data functions over facts, KPIs, semantic entities/relationships, context objects, recommendations, reports, and generic source filters; no Text-to-SQL or raw CSV access is introduced.
+
+## Test UI Notes
+- A framework-free HTML/JavaScript test UI lives at `apps/admin/src/assets/atlas-ai-test-ui.html`.
+- When `apps/admin` is running, it is served from `/api/ui`; admin defaults to port `3002` so api-reader can keep `3000` and api-writer can keep `3001`.
+- The UI stores endpoint/project config in browser localStorage and calls only generic multi-source Writer/Reader endpoints.
+- The test UI includes a `Monitoreo jobs` tab for polling raw file status, import flow, process runs, analysis run detail, and AI outputs linked to an `analysisRunId`.
