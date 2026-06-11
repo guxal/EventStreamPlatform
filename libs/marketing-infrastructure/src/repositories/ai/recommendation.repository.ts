@@ -15,6 +15,7 @@ export type AiOutputListFilters = {
   entityId?: string;
   from?: string;
   to?: string;
+  analysisRunId?: string;
 };
 
 @Injectable()
@@ -28,8 +29,8 @@ export class RecommendationRepository {
         `INSERT INTO recommendations (
            id, project_id, title, body, priority, model_name, model_version, metadata,
            provider, source, report_type, import_id, raw_file_id, raw_ai_output, generation_status,
-           error_message, related_fact_ids, related_entity_ids, confidence
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12::uuid, $13::uuid, $14::jsonb, $15, $16, $17::text[], $18::text[], $19)
+           error_message, related_fact_ids, related_entity_ids, confidence, analysis_run_id, model
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12::uuid, $13::uuid, $14::jsonb, $15, $16, $17::text[], $18::text[], $19, $20::uuid, $21)
          ON CONFLICT (id) DO NOTHING`,
         [
           item.id,
@@ -43,14 +44,16 @@ export class RecommendationRepository {
           metadata.provider ?? item.provider ?? item.modelName,
           metadata.source ?? item.source ?? null,
           metadata.reportType ?? item.reportType ?? null,
-          metadata.dataImportId ?? null,
-          metadata.rawFileId ?? null,
+          metadata.dataImportId ?? metadata.importId ?? item.importId ?? null,
+          metadata.rawFileId ?? item.rawFileId ?? null,
           JSON.stringify(metadata.rawAiOutput ?? null),
           metadata.generationStatus ?? item.generationStatus ?? 'COMPLETED',
           metadata.errorMessage ?? item.errorMessage ?? null,
           metadata.relatedFactIds ?? item.relatedFactIds ?? [],
           metadata.relatedEntityIds ?? item.relatedEntityIds ?? [],
           metadata.confidence ?? item.confidence ?? null,
+          metadata.analysisRunId ?? item.analysisRunId ?? null,
+          metadata.model ?? item.model ?? item.modelVersion ?? null,
         ],
       );
     }
@@ -68,6 +71,7 @@ export class RecommendationRepository {
     this.addFilter(clauses, params, 'COALESCE(metadata->>\'factType\', metadata->>\'fact_type\')', filters.factType);
     this.addFilter(clauses, params, 'metadata->>\'entityType\'', filters.entityType);
     this.addFilter(clauses, params, 'metadata->>\'entityId\'', filters.entityId);
+    this.addFilter(clauses, params, 'analysis_run_id::text', filters.analysisRunId);
     if (filters.from) { params.push(filters.from); clauses.push(`created_at >= $${params.length}`); }
     if (filters.to) { params.push(filters.to); clauses.push(`created_at <= $${params.length}`); }
     const rows = await this.dataSource.query(`SELECT * FROM recommendations WHERE ${clauses.join(' AND ')} ORDER BY created_at DESC`, params);
@@ -93,8 +97,11 @@ export class RecommendationRepository {
       modelName: row.model_name ?? '',
       modelVersion: row.model_version ?? '',
       provider: row.provider ?? metadata.provider ?? row.model_name ?? '',
-      model: metadata.model ?? row.model_version ?? '',
+      model: row.model ?? metadata.model ?? row.model_version ?? '',
       source: row.source ?? metadata.source,
+      analysisRunId: row.analysis_run_id ?? metadata.analysisRunId,
+      importId: row.import_id ?? metadata.dataImportId ?? metadata.importId,
+      rawFileId: row.raw_file_id ?? metadata.rawFileId,
       reportType: row.report_type ?? metadata.reportType,
       generationStatus: row.generation_status ?? metadata.generationStatus ?? 'COMPLETED',
       recommendedActions: metadata.recommendedActions ?? [],

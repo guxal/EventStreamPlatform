@@ -5,7 +5,7 @@ import { AiReportRepository, RecommendationRepository } from '@metrics-platform/
 import { AiContextBuilderService } from '../context';
 import { RecommendationGeneratorService } from '../recommendation-generator.service';
 import { ReportGeneratorService } from '../report-generator.service';
-import { AiProviderError, AiProviderFactory } from '../providers';
+import { AiProviderError, AiProviderFactory, AiProviderName } from '../providers';
 import type { AiReportRecord, RecommendationRecord } from './ai-output.types';
 
 export type AiOutputContextExtras = {
@@ -43,14 +43,14 @@ export class AiOutputOrchestratorService {
           title: item.title,
           body: item.body,
           priority: item.priority,
-          modelName: provider.name,
-          modelVersion: process.env.AI_MODEL || provider.name.toLowerCase(),
+          modelName: this.providerName(provider.name),
+          modelVersion: this.modelName(provider.name),
           createdAt: new Date().toISOString(),
           metadata: {
             ...this.metadataFromFact(sourceFact),
-            provider: provider.name,
-            model: process.env.AI_MODEL || provider.name.toLowerCase(),
-            generationStatus: 'COMPLETED',
+            provider: this.providerName(provider.name),
+            model: this.modelName(provider.name),
+            generationStatus: this.generationStatus(provider.name),
             summary: item.summary ?? item.body,
             recommendedActions: item.recommendedActions ?? [],
             limitations: item.limitations ?? [],
@@ -79,14 +79,14 @@ export class AiOutputOrchestratorService {
         reportType: 'WEEKLY',
         title: 'AI Marketing Performance Report',
         contentMarkdown: generated.content,
-        modelName: provider.name,
-        modelVersion: process.env.AI_MODEL || provider.name.toLowerCase(),
+        modelName: this.providerName(provider.name),
+        modelVersion: this.modelName(provider.name),
         createdAt: new Date().toISOString(),
         metadata: {
           ...this.metadataFromFacts(facts),
-          provider: provider.name,
-          model: process.env.AI_MODEL || provider.name.toLowerCase(),
-          generationStatus: 'COMPLETED',
+          provider: this.providerName(provider.name),
+          model: this.modelName(provider.name),
+          generationStatus: this.generationStatus(provider.name),
           content: generated.content,
           rawAiOutput: generated.rawAiOutput,
         },
@@ -148,6 +148,19 @@ export class AiOutputOrchestratorService {
     return this.aiReportRepository.save(report);
   }
 
+
+  private providerName(name: AiProviderName): string {
+    return name === AiProviderName.MOCK ? 'mock' : name.toLowerCase();
+  }
+
+  private modelName(name: AiProviderName): string {
+    return name === AiProviderName.MOCK ? 'mock-local' : process.env.AI_MODEL || name.toLowerCase();
+  }
+
+  private generationStatus(name: AiProviderName): 'MOCKED' | 'COMPLETED' {
+    return name === AiProviderName.MOCK ? 'MOCKED' : 'COMPLETED';
+  }
+
   private metadataFromFact(fact: DetectedFact | undefined): Record<string, unknown> {
     return {
       source: fact?.metricsSummary?.source,
@@ -158,6 +171,19 @@ export class AiOutputOrchestratorService {
       entityType: fact?.entityType,
       entityId: fact?.entityId,
     };
+  }
+
+
+  private providerName(name: AiProviderName): string {
+    return name === AiProviderName.MOCK ? 'mock' : name.toLowerCase();
+  }
+
+  private modelName(name: AiProviderName): string {
+    return name === AiProviderName.MOCK ? 'mock-local' : process.env.AI_MODEL || name.toLowerCase();
+  }
+
+  private generationStatus(name: AiProviderName): 'MOCKED' | 'COMPLETED' {
+    return name === AiProviderName.MOCK ? 'MOCKED' : 'COMPLETED';
   }
 
   private metadataFromFacts(facts: DetectedFact[]): Record<string, unknown> {

@@ -1,6 +1,6 @@
 import type { FactType } from '../enums/fact-type.enum';
 
-export type AiGenerationStatus = 'COMPLETED' | 'FAILED' | 'SKIPPED';
+export type AiGenerationStatus = 'MOCKED' | 'COMPLETED' | 'FAILED' | 'SKIPPED' | 'PROVIDER_NOT_CONFIGURED';
 
 export type RecommendationRecord = {
   id: string;
@@ -14,6 +14,9 @@ export type RecommendationRecord = {
   createdAt: string;
   source?: string;
   reportType?: string;
+  analysisRunId?: string;
+  importId?: string;
+  rawFileId?: string;
   provider?: string;
   model?: string;
   generationStatus?: AiGenerationStatus;
@@ -39,6 +42,9 @@ export type AiReportRecord = {
   createdAt: string;
   source?: string;
   sourceReportType?: string;
+  analysisRunId?: string;
+  importId?: string;
+  rawFileId?: string;
   provider?: string;
   model?: string;
   generationStatus?: AiGenerationStatus;

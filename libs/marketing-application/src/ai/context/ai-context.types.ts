@@ -9,6 +9,10 @@ export type AiContextBuildFilters = {
   entityType?: string;
   entityId?: string;
   factType?: string;
+  maxFacts?: number;
+  maxEntities?: number;
+  maxRelationships?: number;
+  maxContextObjects?: number;
 };
 
 export type AiMarketingContext = {

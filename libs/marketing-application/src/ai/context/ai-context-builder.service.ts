@@ -5,7 +5,7 @@ import type { AiContextBuildFilters, AiMarketingContext } from './ai-context.typ
 @Injectable()
 export class AiContextBuilderService {
   buildContext(input: AiContextBuildFilters & { facts: DetectedFact[]; kpis?: Record<string, unknown>; unavailableMetrics?: Array<{ metric: string; reason: string }>; warnings?: string[]; dataQualityNotes?: string[]; semanticEntities?: unknown[]; semanticRelationships?: unknown[]; contextObjects?: unknown[] }): AiMarketingContext {
-    const facts = this.filterFacts(input.facts, input).slice(0, 100).map((fact) => ({
+    const facts = this.filterFacts(input.facts, input).slice(0, input.maxFacts ?? 50).map((fact) => ({
       ...fact,
       metricsSummary: this.redactRawFields(fact.metricsSummary),
       source: String(fact.metricsSummary?.source ?? input.source ?? '').toLowerCase() || undefined,
@@ -20,12 +20,12 @@ export class AiContextBuilderService {
       dateRange: input.dateRange,
       facts,
       kpis: this.safeBoundedObject(input.kpis ?? {}),
-      unavailableMetrics: input.unavailableMetrics ?? this.unavailableFromFacts(facts),
+      unavailableMetrics: input.unavailableMetrics ?? this.unavailableFromFacts(facts, input.source),
       warnings: input.warnings ?? [],
       dataQualityNotes: input.dataQualityNotes ?? [],
-      semanticEntities: this.safeBoundedArray(input.semanticEntities ?? []),
-      semanticRelationships: this.safeBoundedArray(input.semanticRelationships ?? []),
-      contextObjects: this.safeBoundedArray(input.contextObjects ?? []),
+      semanticEntities: this.safeBoundedArray(input.semanticEntities ?? [], input.maxEntities ?? 50),
+      semanticRelationships: this.safeBoundedArray(input.semanticRelationships ?? [], input.maxRelationships ?? 100),
+      contextObjects: this.safeBoundedArray(input.contextObjects ?? [], input.maxContextObjects ?? 30),
     };
   }
 
@@ -39,8 +39,8 @@ export class AiContextBuilderService {
       .filter((fact) => !filters.factType || String(fact.factType) === filters.factType);
   }
 
-  private unavailableFromFacts(facts: DetectedFact[]): Array<{ metric: string; reason: string }> {
-    const hasNoCost = facts.some((fact) => fact.factType === 'NO_RELIABLE_COST_SOURCE');
+  private unavailableFromFacts(facts: DetectedFact[], source?: string): Array<{ metric: string; reason: string }> {
+    const hasNoCost = facts.some((fact) => fact.factType === 'NO_RELIABLE_COST_SOURCE') || source?.toLowerCase() === 'appsflyer';
     return hasNoCost
       ? [
           { metric: 'roas', reason: 'No reliable cost source was provided.' },
@@ -59,8 +59,8 @@ export class AiContextBuilderService {
     return serialized.length > 20_000 ? { truncated: true } : JSON.parse(serialized);
   }
 
-  private safeBoundedArray(input: unknown[]): unknown[] {
-    const sliced = input.slice(0, 100);
+  private safeBoundedArray(input: unknown[], maxItems: number): unknown[] {
+    const sliced = input.slice(0, maxItems);
     const serialized = JSON.stringify(sliced);
     return serialized.length > 20_000 ? [{ truncated: true, originalCount: input.length }] : JSON.parse(serialized);
   }

@@ -3,6 +3,7 @@ import { QueryBus } from '@nestjs/cqrs';
 import { GetMetricQuery, ListMetricsQuery } from '@metrics-platform/core-application';
 import {
   AiReportRepository,
+  AnalysisRunRepository,
   AppsFlyerEventsRepository,
   AppsFlyerSnapshotsRepository,
   DataImportsReaderRepository,
@@ -14,6 +15,7 @@ import {
   ContextObjectRepository,
 } from '@metrics-platform/marketing-infrastructure';
 import type { AiOutputListFilters, AppsFlyerEventFilters } from '@metrics-platform/marketing-infrastructure';
+import { AiQuestionAnsweringService } from '@metrics-platform/marketing-application';
 import type { AiChatPayload, CampaignRow, DashboardSummary, KeywordRow } from './reader.types';
 
 @Injectable()
@@ -30,6 +32,8 @@ export class AppService {
     private readonly semanticEntityRepository: SemanticEntityRepository,
     private readonly semanticRelationshipRepository: SemanticRelationshipRepository,
     private readonly contextObjectRepository: ContextObjectRepository,
+    private readonly analysisRunRepository: AnalysisRunRepository,
+    private readonly aiQuestionAnsweringService: AiQuestionAnsweringService,
   ) {}
 
   async handleGetMetric(metricName: string, period: string, store: 'db' | 'redis' = 'db') {
@@ -167,24 +171,22 @@ export class AppService {
     return run;
   }
 
-  async askAiChat(projectId: string, payload: AiChatPayload) {
-    const facts = await this.detectedFactRepository.listByProject(projectId);
-    if (facts.length === 0) {
-      return {
-        projectId,
-        query: payload.query,
-        response: 'No hay facts detectados para este proyecto todavía. Sube y procesa un archivo antes de pedir recomendaciones.',
-        source: 'facts-first',
-      };
-    }
+  async listAnalysisRuns(projectId: string, filters: { source?: string; reportType?: string; importId?: string; status?: string; analysisType?: string; from?: string; to?: string } = {}) {
+    return this.analysisRunRepository.findByProject(projectId, filters);
+  }
 
-    const topFact = facts[0];
-    return {
-      projectId,
-      query: payload.query,
-      response: `Basado solo en facts detectados, el principal hallazgo es ${topFact.factType} con severidad ${topFact.severity}. ${topFact.recommendationHint ?? 'Revisa el detalle del fact antes de tomar acción.'}`,
-      source: 'facts-first',
-      fact: topFact,
-    };
+  async getAnalysisRun(projectId: string, analysisRunId: string) {
+    const run = await this.analysisRunRepository.findById(projectId, analysisRunId);
+    if (!run) throw new NotFoundException(`Analysis run ${analysisRunId} not found for project ${projectId}`);
+    return run;
+  }
+
+  async askQuestion(projectId: string, payload: { question?: string; query?: string; source?: string; reportType?: string; importId?: string; dateRange?: { from?: string; to?: string }; provider?: string; model?: string }) {
+    return this.aiQuestionAnsweringService.answer({ projectId, question: payload.question ?? payload.query ?? '', source: payload.source, reportType: payload.reportType, importId: payload.importId, dateRange: payload.dateRange, provider: payload.provider, model: payload.model });
+  }
+
+  async askAiChat(projectId: string, payload: AiChatPayload) {
+    const result = await this.askQuestion(projectId, { question: payload.question ?? payload.query, source: payload.source, reportType: payload.reportType, importId: payload.importId, dateRange: payload.dateRange });
+    return { ...result, query: payload.query ?? payload.question, response: result.answer };
   }
 }

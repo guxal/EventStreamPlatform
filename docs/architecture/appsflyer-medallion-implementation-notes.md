@@ -164,3 +164,11 @@ On worker failure:
 - `error_message` and `error_summary` are saved for debugging.
 
 Current stages include request validation, bronze profiling, silver parsing/normalization/persistence, gold KPI/fact generation, and AI output generation.
+
+## Explicit AI Analysis Runs and Controlled Questions
+
+AppsFlyer import processing remains independent from manual AI regeneration. After Bronze/Silver/Gold processing has completed, users or systems can create an `analysis_runs` record through the generic writer endpoint `POST /projects/:id/analysis-runs`. The writer publishes a `generate-ai-analysis` job to the `marketing-analysis` queue, and the processor worker builds bounded AI context from detected facts, KPI snapshots/overview data, semantic entities, semantic relationships, and context objects. It does not reopen raw CSV objects or reprocess the import file.
+
+Manual AI analysis outputs are linked back with `analysis_run_id`, provider, model, generation status, import/file filters, source, and report type. Mock output must remain visibly marked as `provider=mock`, `model=mock-local`, and `generation_status=MOCKED` so it cannot be mistaken for real provider-generated recommendations or reports.
+
+The controlled question layer is exposed through generic reader routes (`POST /projects/:id/questions` and the compatibility alias `POST /projects/:id/ai-chat`). Questions are routed through deterministic intents and controlled repository functions. The LLM receives only bounded JSON returned by those functions; it must not generate SQL, read raw CSV, inspect unbounded ClickHouse rows, or claim ROAS/CPA/CAC for AppsFlyer-only data without a reliable cost source.

@@ -13,6 +13,7 @@ export * from './enums/report-type.enum';
 
 export * from './types/temporal-context.type';
 export * from './types/ai-output.types';
+export * from './types/analysis-run.types';
 
 export * from './contracts/detected-fact.contract';
 export * from './contracts/analysis-plugin.contract';

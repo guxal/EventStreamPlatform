@@ -7,8 +7,8 @@ import { OpenAiProvider } from './openai.provider';
 
 @Injectable()
 export class AiProviderFactory {
-  getProvider(): AiProvider {
-    const provider = this.providerName();
+  getProvider(requestedProvider?: string): AiProvider {
+    const provider = this.providerName(requestedProvider);
     const selected = this.create(provider);
     if (selected.isConfigured()) return selected;
     if (this.aiRequired()) throw new AiProviderError('AI_PROVIDER_NOT_CONFIGURED', `${provider} provider is required but not configured`);
@@ -16,8 +16,8 @@ export class AiProviderFactory {
     throw new AiProviderError('AI_PROVIDER_NOT_CONFIGURED', `${provider} provider is not configured and mock provider is disabled`);
   }
 
-  private providerName(): AiProviderName {
-    const raw = String(process.env.AI_PROVIDER || '').trim().toLowerCase();
+  private providerName(requestedProvider?: string): AiProviderName {
+    const raw = String(requestedProvider || process.env.AI_PROVIDER || '').trim().toLowerCase();
     if (!raw) return this.mockEnabled() ? AiProviderName.MOCK : AiProviderName.OPENAI;
     if (raw === 'openai') return AiProviderName.OPENAI;
     if (raw === 'gemini') return AiProviderName.GEMINI;
@@ -34,7 +34,7 @@ export class AiProviderFactory {
   }
 
   private mockEnabled(): boolean {
-    return process.env.NODE_ENV === 'test' || process.env.AI_ENABLE_MOCK === 'true' || process.env.AI_PROVIDER === 'mock';
+    return process.env.AI_ENABLE_MOCK !== 'false' || process.env.NODE_ENV === 'test' || process.env.AI_PROVIDER === 'mock';
   }
 
   private aiRequired(): boolean {

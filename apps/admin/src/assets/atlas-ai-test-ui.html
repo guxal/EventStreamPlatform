@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Atlas AI / AI Marketing Copilot — Test UI</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b1020; --panel:#121a2f; --muted:#8ea0c3; --text:#eef4ff; --line:#263654; --accent:#7dd3fc; --ok:#86efac; --warn:#facc15; --err:#fca5a5; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; background:linear-gradient(135deg,#08111f,#10172a 55%,#111827); color:var(--text); }
+    header { padding:24px; border-bottom:1px solid var(--line); background:rgba(11,16,32,.86); position:sticky; top:0; z-index:10; backdrop-filter:blur(8px); }
+    h1 { margin:0 0 6px; font-size:24px; }
+    h2 { margin:0 0 14px; font-size:18px; }
+    h3 { margin:16px 0 8px; font-size:15px; color:var(--accent); }
+    p { color:var(--muted); margin:6px 0; }
+    main { display:grid; grid-template-columns: 380px minmax(0,1fr); gap:16px; padding:16px; }
+    section, .card { background:rgba(18,26,47,.92); border:1px solid var(--line); border-radius:14px; padding:16px; box-shadow:0 16px 40px rgba(0,0,0,.25); }
+    label { display:block; margin:10px 0 5px; color:#c7d2fe; font-size:13px; }
+    input, select, textarea, button { width:100%; border-radius:10px; border:1px solid var(--line); background:#0b1222; color:var(--text); padding:10px 12px; font:inherit; }
+    textarea { min-height:86px; resize:vertical; }
+    button { cursor:pointer; background:#0e7490; border-color:#0891b2; font-weight:700; margin-top:10px; }
+    button.secondary { background:#1f2937; border-color:#334155; }
+    button.danger { background:#7f1d1d; border-color:#991b1b; }
+    button:hover { filter:brightness(1.13); }
+    .grid { display:grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap:12px; }
+    .row { display:flex; gap:10px; align-items:center; }
+    .row > * { flex:1; }
+    .stack { display:grid; gap:16px; }
+    .muted { color:var(--muted); font-size:12px; }
+    .pill { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; border:1px solid var(--line); color:var(--muted); font-size:12px; margin:2px 4px 2px 0; }
+    .ok { color:var(--ok); } .warn { color:var(--warn); } .err { color:var(--err); }
+    pre { white-space:pre-wrap; word-break:break-word; background:#050914; border:1px solid var(--line); border-radius:12px; padding:12px; max-height:360px; overflow:auto; }
+    .result { min-height:120px; }
+    .tabs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+    .tabs button { width:auto; margin:0; padding:8px 10px; background:#172036; border-color:#2b3b5f; }
+    .tabs button.active { background:#0e7490; border-color:#22d3ee; }
+    .hidden { display:none; }
+    .copy { width:auto; padding:6px 10px; margin:0; float:right; }
+    @media (max-width: 960px) { main { grid-template-columns:1fr; } header { position:static; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Atlas AI / AI Marketing Copilot — Test UI</h1>
+    <p>Frontend básico sin frameworks para probar Writer (:3001) + Reader (:3000), File Hub, AppsFlyer, analysis_runs y preguntas controladas.</p>
+    <span class="pill">No lee CSV desde AI</span><span class="pill">Sin Text-to-SQL</span><span class="pill">Multi-source por filtros</span>
+  </header>
+
+  <main>
+    <aside class="stack">
+      <section>
+        <h2>Configuración</h2>
+        <label>Writer API base</label>
+        <input id="writerBase" value="http://localhost:3001/api" />
+        <label>Reader API base</label>
+        <input id="readerBase" value="http://localhost:3000/api" />
+        <label>Project ID</label>
+        <input id="projectId" placeholder="uuid del proyecto" />
+        <div class="grid">
+          <div><label>Source</label><input id="source" value="appsflyer" /></div>
+          <div><label>Report type</label><input id="reportType" value="non_organic_in_app_events" /></div>
+        </div>
+        <div class="grid">
+          <div><label>Import ID</label><input id="importId" placeholder="opcional" /></div>
+          <div><label>Raw File ID</label><input id="rawFileId" placeholder="opcional" /></div>
+        </div>
+        <button onclick="saveConfig()">Guardar config local</button>
+        <button class="secondary" onclick="loadConfig()">Recargar config</button>
+      </section>
+
+      <section>
+        <h2>Proyecto</h2>
+        <label>Nombre</label><input id="projectName" value="Atlas AI Test Project" />
+        <label>Descripción</label><input id="projectDescription" value="Proyecto de prueba desde FE básico" />
+        <button onclick="createProject()">Crear proyecto</button>
+        <button class="secondary" onclick="listProjects()">Listar proyectos</button>
+      </section>
+
+      <section>
+        <h2>File Hub</h2>
+        <label>CSV</label><input id="csvFile" type="file" accept=".csv,text/csv" />
+        <label>Tags JSON opcional</label><textarea id="fileTags" placeholder='{"source":"appsflyer"}'></textarea>
+        <button onclick="uploadFile()">Upload + profile</button>
+        <button class="secondary" onclick="listFiles()">Listar files</button>
+        <button onclick="processFile()">Procesar rawFileId</button>
+        <button class="secondary" onclick="getFileDetail()">Ver rawFileId</button>
+      </section>
+    </aside>
+
+    <section>
+      <div class="tabs">
+        <button class="active" onclick="showTab('reader', this)">Reader</button>
+        <button onclick="showTab('analysis', this)">AI analysis_runs</button>
+        <button onclick="showTab('monitoring', this)">Monitoreo jobs</button>
+        <button onclick="showTab('questions', this)">Preguntas</button>
+        <button onclick="showTab('raw', this)">Respuesta raw</button>
+      </div>
+
+      <div id="tab-reader" class="stack">
+        <div class="card">
+          <h2>Datos procesados</h2>
+          <div class="grid">
+            <button onclick="getReader('/projects/{projectId}/overview?source={source}')">Overview</button>
+            <button onclick="getReader('/projects/{projectId}/metrics?source={source}')">Metrics</button>
+            <button onclick="getReader('/projects/{projectId}/events/by-name?source={source}&reportType={reportType}&importId={importId}')">Events by name</button>
+            <button onclick="getReader('/projects/{projectId}/entities/performance?source={source}')">Entities performance</button>
+            <button onclick="getReader('/projects/{projectId}/facts?source={source}&reportType={reportType}')">Facts</button>
+            <button onclick="getReader('/projects/{projectId}/semantic/entities?source={source}&reportType={reportType}&importId={importId}')">Semantic entities</button>
+            <button onclick="getReader('/projects/{projectId}/semantic/relationships?source={source}&reportType={reportType}&importId={importId}')">Relationships</button>
+            <button onclick="getReader('/projects/{projectId}/context?source={source}&reportType={reportType}')">Context</button>
+            <button onclick="getReader('/projects/{projectId}/traffic-quality/blocked?source={source}')">Blocked traffic</button>
+            <button onclick="getReader('/projects/{projectId}/imports/{importId}/flow')">Import flow</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2>AI outputs</h2>
+          <div class="grid">
+            <button onclick="getReader('/projects/{projectId}/recommendations?source={source}&reportType={reportType}&importId={importId}')">Recommendations</button>
+            <button onclick="getReader('/projects/{projectId}/reports?source={source}&reportType={reportType}&importId={importId}')">Reports</button>
+            <button onclick="getReader('/projects/{projectId}/analysis-runs?source={source}&reportType={reportType}&importId={importId}')">Analysis runs</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-analysis" class="stack hidden">
+        <div class="card">
+          <h2>Crear analysis_run manual</h2>
+          <div class="grid">
+            <div><label>Analysis type</label><select id="analysisType"><option>FULL_REPORT</option><option>RECOMMENDATIONS_ONLY</option><option>REPORT_ONLY</option><option>FACT_EXPLANATION</option><option>IMPORT_SUMMARY</option><option>PROJECT_SUMMARY</option></select></div>
+            <div><label>Provider</label><select id="provider"><option value="">default/mock fallback</option><option value="mock">mock</option><option value="openai">openai</option><option value="gemini">gemini</option><option value="claude">claude</option></select></div>
+          </div>
+          <div class="grid">
+            <div><label>From</label><input id="dateFrom" type="date" /></div>
+            <div><label>To</label><input id="dateTo" type="date" /></div>
+          </div>
+          <label><input id="forceRegenerate" type="checkbox" style="width:auto" checked /> forceRegenerate</label>
+          <button onclick="createAnalysisRun()">Crear + encolar</button>
+          <button class="secondary" onclick="getAnalysisRun()">Ver analysisRunId</button>
+          <label>Analysis Run ID</label><input id="analysisRunId" placeholder="se autocompleta al crear" />
+        </div>
+      </div>
+
+      <div id="tab-monitoring" class="stack hidden">
+        <div class="card">
+          <h2>Monitoreo de jobs / procesos</h2>
+          <p>Seguimiento por IDs actuales: rawFileId, importId, analysisRunId y processRunId. Usa polling para ver cambios de estado mientras worker procesa.</p>
+          <div class="grid">
+            <div><label>Process Run ID</label><input id="processRunId" placeholder="opcional; sale de /processes o import flow" /></div>
+            <div><label>Polling ms</label><input id="monitorIntervalMs" type="number" min="1000" step="500" value="3000" /></div>
+          </div>
+          <div class="grid">
+            <button onclick="monitorOnce()">Refrescar ahora</button>
+            <button onclick="startMonitoring()">Iniciar polling</button>
+            <button class="secondary" onclick="stopMonitoring()">Detener polling</button>
+            <button class="secondary" onclick="getReader('/projects/{projectId}/processes?limit=20')">Listar process runs</button>
+          </div>
+          <h3>Resumen vivo</h3>
+          <div id="monitorSummary" class="muted">Sin monitoreo todavía.</div>
+          <pre id="monitorOutput" class="result"></pre>
+        </div>
+        <div class="card">
+          <h2>Consultas rápidas de seguimiento</h2>
+          <div class="grid">
+            <button onclick="getFileDetail()">Raw file status</button>
+            <button onclick="getReader('/projects/{projectId}/imports/{importId}/flow')">Import flow</button>
+            <button onclick="getAnalysisRun()">Analysis run status</button>
+            <button onclick="getReader('/projects/{projectId}/processes/{processRunId}')">Process run detail</button>
+            <button onclick="getReader('/projects/{projectId}/recommendations?analysisRunId={analysisRunId}')">Run recommendations</button>
+            <button onclick="getReader('/projects/{projectId}/reports?analysisRunId={analysisRunId}')">Run reports</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-questions" class="stack hidden">
+        <div class="card">
+          <h2>Pregunta controlada</h2>
+          <label>Pregunta</label>
+          <textarea id="question">Why is ROAS unavailable?</textarea>
+          <div class="grid">
+            <button onclick="askQuestion('/projects/{projectId}/questions')">POST /questions</button>
+            <button class="secondary" onclick="askQuestion('/projects/{projectId}/ai-chat')">POST /ai-chat alias</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Preguntas rápidas</h2>
+          <div class="grid">
+            <button onclick="quickQuestion('What are the main detected facts?')">Main facts</button>
+            <button onclick="quickQuestion('Which media source performed better?')">Media source</button>
+            <button onclick="quickQuestion('What data quality issues exist?')">Data quality</button>
+            <button onclick="quickQuestion('Summarize the latest report')">Latest report</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-raw" class="stack hidden">
+        <div class="card">
+          <button class="copy" onclick="copyOutput()">Copiar</button>
+          <h2>Última respuesta</h2>
+          <p id="status" class="muted">Sin requests todavía.</p>
+          <pre id="output" class="result"></pre>
+        </div>
+      </div>
+
+      <div class="card">
+        <button class="copy" onclick="copyOutput()">Copiar</button>
+        <h2>Última respuesta</h2>
+        <p id="statusMirror" class="muted">Sin requests todavía.</p>
+        <pre id="outputMirror" class="result"></pre>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const fields = ['writerBase','readerBase','projectId','source','reportType','importId','rawFileId','analysisRunId','processRunId'];
+    let monitorTimer = null;
+
+    function loadConfig() {
+      const saved = JSON.parse(localStorage.getItem('atlasTestUi') || '{}');
+      fields.forEach((id) => { if (saved[id]) $(id).value = saved[id]; });
+      setStatus('Config cargada', 'ok');
+    }
+    function saveConfig() {
+      const data = Object.fromEntries(fields.map((id) => [id, $(id).value.trim()]));
+      localStorage.setItem('atlasTestUi', JSON.stringify(data));
+      setStatus('Config guardada', 'ok');
+    }
+    function cfg() {
+      return Object.fromEntries(fields.map((id) => [id, $(id).value.trim()]));
+    }
+    function pathTemplate(path) {
+      const c = cfg();
+      let out = path
+        .replaceAll('{projectId}', encodeURIComponent(c.projectId))
+        .replaceAll('{source}', encodeURIComponent(c.source))
+        .replaceAll('{reportType}', encodeURIComponent(c.reportType))
+        .replaceAll('{importId}', encodeURIComponent(c.importId))
+        .replaceAll('{rawFileId}', encodeURIComponent(c.rawFileId))
+        .replaceAll('{analysisRunId}', encodeURIComponent(c.analysisRunId))
+        .replaceAll('{processRunId}', encodeURIComponent(c.processRunId));
+      out = out.replace(/[?&][^=]+=(&|$)/g, (m) => m.endsWith('&') ? '&' : '').replace(/[?&]$/, '');
+      return out;
+    }
+    function base(kind) { return (kind === 'writer' ? $('writerBase').value : $('readerBase').value).replace(/\/$/, ''); }
+    function requiredProject() { if (!$('projectId').value.trim()) throw new Error('Configura projectId primero.'); }
+    async function request(kind, path, options = {}) {
+      const url = base(kind) + pathTemplate(path);
+      setStatus('Request: ' + options.method + ' ' + url, 'warn');
+      const res = await fetch(url, options);
+      const text = await res.text();
+      let body = text;
+      try { body = text ? JSON.parse(text) : null; } catch {}
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}: ${typeof body === 'string' ? body : JSON.stringify(body)}`);
+      showOutput({ url, status: res.status, body });
+      return body;
+    }
+    async function fetchJson(kind, path) {
+      const url = base(kind) + pathTemplate(path);
+      try {
+        const res = await fetch(url, { method:'GET' });
+        const text = await res.text();
+        let body = text;
+        try { body = text ? JSON.parse(text) : null; } catch {}
+        return { ok: res.ok, status: res.status, url, body };
+      } catch (error) {
+        return { ok: false, status: 'NETWORK_ERROR', url, error: error && error.message ? error.message : String(error) };
+      }
+    }
+    function jsonOptions(body) { return { method:'POST', headers:{ 'content-type':'application/json' }, body: JSON.stringify(body) }; }
+
+    async function createProject() {
+      try {
+        const body = await request('writer', '/projects', jsonOptions({ name:$('projectName').value, description:$('projectDescription').value }));
+        if (body && body.id) { $('projectId').value = body.id; saveConfig(); }
+      } catch (e) { showError(e); }
+    }
+    async function listProjects() { try { await request('writer', '/projects', { method:'GET' }); } catch(e) { showError(e); } }
+    async function uploadFile() {
+      try {
+        requiredProject();
+        const file = $('csvFile').files[0];
+        if (!file) throw new Error('Selecciona un CSV.');
+        const form = new FormData();
+        form.append('file', file);
+        if ($('fileTags').value.trim()) form.append('tags', $('fileTags').value.trim());
+        const body = await request('writer', '/projects/{projectId}/files', { method:'POST', body: form });
+        const rawFileId = body.id || body.fileId || body.rawFileId;
+        if (rawFileId) { $('rawFileId').value = rawFileId; saveConfig(); }
+        if (body.dataImportId) $('importId').value = body.dataImportId;
+      } catch(e) { showError(e); }
+    }
+    async function listFiles() { try { requiredProject(); await request('writer', '/projects/{projectId}/files?source={source}&report_type={reportType}', { method:'GET' }); } catch(e) { showError(e); } }
+    async function getFileDetail() { try { requiredProject(); await request('writer', '/projects/{projectId}/files/{rawFileId}', { method:'GET' }); } catch(e) { showError(e); } }
+    async function processFile() { try { requiredProject(); const body = await request('writer', '/projects/{projectId}/files/{rawFileId}/process', { method:'POST' }); if (body.dataImportId || body.importId) { $('importId').value = body.dataImportId || body.importId; saveConfig(); } } catch(e) { showError(e); } }
+    async function getReader(path) { try { requiredProject(); await request('reader', path, { method:'GET' }); } catch(e) { showError(e); } }
+    async function createAnalysisRun() {
+      try {
+        requiredProject();
+        const payload = commonPayload();
+        payload.analysisType = $('analysisType').value;
+        payload.provider = $('provider').value || undefined;
+        payload.forceRegenerate = $('forceRegenerate').checked;
+        payload.dateRange = { from:$('dateFrom').value || undefined, to:$('dateTo').value || undefined };
+        const body = await request('writer', '/projects/{projectId}/analysis-runs', jsonOptions(payload));
+        if (body.analysisRunId) { $('analysisRunId').value = body.analysisRunId; saveConfig(); }
+      } catch(e) { showError(e); }
+    }
+    async function getAnalysisRun() { try { requiredProject(); await request('reader', '/projects/{projectId}/analysis-runs/{analysisRunId}', { method:'GET' }); } catch(e) { showError(e); } }
+
+    async function monitorOnce() {
+      try {
+        requiredProject();
+        saveConfig();
+        const c = cfg();
+        const checks = [
+          ['processRuns', 'reader', '/projects/{projectId}/processes?limit=10'],
+        ];
+        if (c.rawFileId) checks.push(['rawFile', 'writer', '/projects/{projectId}/files/{rawFileId}']);
+        if (c.importId) checks.push(['importFlow', 'reader', '/projects/{projectId}/imports/{importId}/flow']);
+        if (c.analysisRunId) {
+          checks.push(['analysisRun', 'reader', '/projects/{projectId}/analysis-runs/{analysisRunId}']);
+          checks.push(['recommendationsForRun', 'reader', '/projects/{projectId}/recommendations?analysisRunId={analysisRunId}']);
+          checks.push(['reportsForRun', 'reader', '/projects/{projectId}/reports?analysisRunId={analysisRunId}']);
+        }
+        if (c.processRunId) checks.push(['processRunDetail', 'reader', '/projects/{projectId}/processes/{processRunId}']);
+
+        const entries = await Promise.all(checks.map(async ([name, kind, path]) => [name, await fetchJson(kind, path)]));
+        const result = Object.fromEntries(entries);
+        showMonitorOutput(result);
+        showOutput({ monitoredAt: new Date().toISOString(), ...result });
+      } catch (e) { showError(e); }
+    }
+
+    function showMonitorOutput(result) {
+      const rawStatus = result.rawFile?.body?.status || result.rawFile?.body?.file?.status || 'n/a';
+      const importStatus = result.importFlow?.body?.status || result.importFlow?.body?.run?.status || result.importFlow?.body?.dataImportStatus || 'n/a';
+      const analysisStatus = result.analysisRun?.body?.status || 'n/a';
+      const processStatus = result.processRunDetail?.body?.status || 'n/a';
+      $('monitorSummary').innerHTML = [
+        `<span class="pill">raw_file: ${rawStatus}</span>`,
+        `<span class="pill">import_flow: ${importStatus}</span>`,
+        `<span class="pill">analysis_run: ${analysisStatus}</span>`,
+        `<span class="pill">process_run: ${processStatus}</span>`,
+        `<span class="pill">updated: ${new Date().toLocaleTimeString()}</span>`,
+      ].join(' ');
+      $('monitorOutput').textContent = JSON.stringify(result, null, 2);
+      setStatus('Monitoreo actualizado ' + new Date().toLocaleTimeString(), 'ok');
+    }
+
+    function startMonitoring() {
+      stopMonitoring();
+      const interval = Math.max(Number($('monitorIntervalMs').value || 3000), 1000);
+      monitorOnce();
+      monitorTimer = setInterval(monitorOnce, interval);
+      setStatus('Polling iniciado cada ' + interval + 'ms', 'ok');
+    }
+
+    function stopMonitoring() {
+      if (monitorTimer) clearInterval(monitorTimer);
+      monitorTimer = null;
+      setStatus('Polling detenido', 'warn');
+    }
+
+    async function askQuestion(path) {
+      try {
+        requiredProject();
+        await request('reader', path, jsonOptions({ ...commonPayload(), question:$('question').value }));
+      } catch(e) { showError(e); }
+    }
+    function quickQuestion(q) { $('question').value = q; askQuestion('/projects/{projectId}/questions'); }
+    function commonPayload() {
+      const c = cfg();
+      return { source:c.source || undefined, reportType:c.reportType || undefined, importId:c.importId || undefined, rawFileId:c.rawFileId || undefined };
+    }
+    function showOutput(data) {
+      const text = JSON.stringify(data, null, 2);
+      $('output').textContent = text; $('outputMirror').textContent = text;
+      setStatus('OK ' + new Date().toLocaleTimeString(), 'ok');
+    }
+    function showError(error) {
+      const msg = error && error.message ? error.message : String(error);
+      $('output').textContent = msg; $('outputMirror').textContent = msg;
+      setStatus('Error', 'err');
+    }
+    function setStatus(text, cls) {
+      for (const id of ['status','statusMirror']) { $(id).textContent = text; $(id).className = 'muted ' + (cls || ''); }
+    }
+    function showTab(name, btn) {
+      for (const el of document.querySelectorAll('[id^="tab-"]')) el.classList.add('hidden');
+      $('tab-' + name).classList.remove('hidden');
+      for (const b of document.querySelectorAll('.tabs button')) b.classList.remove('active');
+      btn.classList.add('active');
+    }
+    async function copyOutput() { await navigator.clipboard.writeText($('outputMirror').textContent || $('output').textContent || ''); setStatus('Copiado al clipboard', 'ok'); }
+    loadConfig();
+  </script>
+</body>
+</html>

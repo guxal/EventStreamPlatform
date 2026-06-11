@@ -2,12 +2,13 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { randomUUID } from 'crypto';
 import { EventProducerService } from '@metrics-platform/core-infrastructure';
-import { ProjectRepository } from '@metrics-platform/marketing-infrastructure';
+import { AnalysisRunRepository, DataImportRepository, ProjectRepository, RawImportFileRepository } from '@metrics-platform/marketing-infrastructure';
 import { FileHubService } from '@metrics-platform/marketing-application';
 import { ObjectStorageService } from '@metrics-platform/marketing-infrastructure';
 import { CreateEventCommand } from '@metrics-platform/core-application';
 import { CreateEventDto } from '@metrics-platform/core-shared';
 import type {
+  AnalysisType,
   CreateRawFilePayload,
   FileHubListFilters,
   UpdateRawFileTagsPayload,
@@ -24,6 +25,9 @@ export class AppService {
     private readonly objectStorageService: ObjectStorageService,
     private readonly projectRepository: ProjectRepository,
     private readonly fileHubService: FileHubService,
+    private readonly analysisRunRepository: AnalysisRunRepository,
+    private readonly dataImportRepository: DataImportRepository,
+    private readonly rawImportFileRepository: RawImportFileRepository,
   ) {}
 
   async handleCreateEvent(dto: CreateEventDto) {
@@ -127,5 +131,20 @@ export class AppService {
 
   reprocessProjectFile(projectId: string, fileId: string) {
     return this.fileHubService.reprocessFile(projectId, fileId, 'api-writer');
+  }
+
+  async createAnalysisRun(projectId: string, payload: { source?: string; reportType?: string; importId?: string; rawFileId?: string; dateRange?: { from?: string; to?: string }; analysisType: AnalysisType; provider?: string; model?: string; forceRegenerate?: boolean }) {
+    if (!(await this.projectRepository.exists(projectId))) throw new NotFoundException(`Project ${projectId} not found`);
+    const validTypes = new Set(['FULL_REPORT', 'RECOMMENDATIONS_ONLY', 'REPORT_ONLY', 'FACT_EXPLANATION', 'IMPORT_SUMMARY', 'PROJECT_SUMMARY']);
+    if (!validTypes.has(payload.analysisType)) throw new Error(`Unsupported analysisType ${payload.analysisType}`);
+    if (payload.source && !['appsflyer', 'google_ads', 'meta_ads'].includes(payload.source.toLowerCase())) throw new Error(`Unsupported source ${payload.source}`);
+    if (payload.importId && !(await this.dataImportRepository.findByProjectAndId(projectId, payload.importId))) throw new NotFoundException(`Import ${payload.importId} not found for project ${projectId}`);
+    if (payload.rawFileId && !(await this.rawImportFileRepository.findByProjectAndId(projectId, payload.rawFileId))) throw new NotFoundException(`Raw file ${payload.rawFileId} not found for project ${projectId}`);
+    const analysisRunId = randomUUID();
+    const correlationId = randomUUID();
+    const run = await this.analysisRunRepository.create({ id: analysisRunId, projectId, source: payload.source, reportType: payload.reportType, importId: payload.importId, rawFileId: payload.rawFileId, analysisType: payload.analysisType, provider: payload.provider, model: payload.model, status: 'QUEUED', triggeredBy: 'manual', inputContextSummary: { dateRange: payload.dateRange, forceRegenerate: payload.forceRegenerate } });
+    const jobPayload = { analysisRunId, projectId, source: payload.source, reportType: payload.reportType, importId: payload.importId, rawFileId: payload.rawFileId, dateRange: payload.dateRange, analysisType: payload.analysisType, provider: payload.provider, model: payload.model, forceRegenerate: payload.forceRegenerate, triggeredBy: 'manual', correlationId };
+    await this.eventProducerService.publishMarketingAnalysis(jobPayload);
+    return { analysisRunId: run.id, status: run.status, source: run.source, reportType: run.reportType, analysisType: run.analysisType, provider: run.provider, job: { queue: 'marketing-analysis', name: 'generate-ai-analysis', correlationId } };
   }
 }

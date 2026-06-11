@@ -25,6 +25,7 @@ import type {
   FileHubListFilters,
   RawImportFileTags,
   UpdateRawFileTagsPayload,
+  AnalysisType,
 } from '@metrics-platform/marketing-shared';
 
 type UploadedCsvFile = {
@@ -245,6 +246,16 @@ export class AppController {
   @ApiOperation({ summary: 'List legacy project imports' })
   listProjectImports(@Param('id') projectId: string) {
     return this.appService.listProjectImports(projectId);
+  }
+
+  @Post('projects/:id/analysis-runs')
+  @ApiTags('analysis-runs')
+  @ApiOperation({ summary: 'Create a manual AI analysis run over already processed project data' })
+  createAnalysisRun(
+    @Param('id') projectId: string,
+    @Body() payload: { source?: string; reportType?: string; importId?: string; rawFileId?: string; dateRange?: { from?: string; to?: string }; analysisType: AnalysisType; provider?: string; model?: string; forceRegenerate?: boolean },
+  ) {
+    return this.appService.createAnalysisRun(projectId, payload);
   }
 
   private buildCsvImportPayload(file: UploadedCsvFile | undefined, body: MultipartCsvImportBody): CreateImportPayload {
