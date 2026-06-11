@@ -1,71 +1,73 @@
-# EventStream AI Marketing Copilot — Executive Program Overview
+# AI Marketing Copilot — Stakeholder Program Overview
 
-## 1) Program Summary
-EventStream Platform is being extended with an **AI Marketing Copilot** to help teams ingest marketing CSV data, detect performance issues, and generate actionable recommendations/reports.
+## 1. Executive summary
 
-This is being delivered as a phased program over the existing platform (no core rewrite).
+The EventStream Platform now includes an AI Marketing Copilot layer that converts marketing CSV uploads into processed metrics, deterministic findings, AI-generated recommendations/reports, and controlled AI chat answers.
 
-## 2) Business Goals
-- Reduce time-to-insight for campaign optimization.
-- Standardize KPI diagnostics with deterministic rules.
-- Introduce controlled AI outputs grounded in verified facts.
-- Prepare a scalable data foundation for future channel integrations.
+The current strongest production-like flow is the AppsFlyer CSV path, backed by File Hub, queue-based processing, ClickHouse, PostgreSQL, semantic/context enrichment, AI providers and a browser-based HTML test UI.
 
-## 3) What has been delivered
-- New API capabilities for project/import lifecycle and reader dashboards.
-- Queue-based import orchestration (`marketing-imports`).
-- Object storage write step prior to async processing.
-- PostgreSQL schema for operational/transactional entities.
-- ClickHouse schema for time-series marketing metrics.
-- Deterministic analysis engine with 8 V1 diagnostic rules.
-- AI layer that generates recommendations/reports from detected facts.
+## 2. Business value delivered
 
-## 4) Current End-to-End Flow (V1 implemented scaffold)
-1. User creates project and uploads CSV metadata/payload.
-2. Writer stores file to object storage adapter.
-3. Writer emits `process-marketing-import` job to BullMQ.
-4. Worker pipeline is prepared for parser/normalizer/analysis stages.
-5. Reader endpoints expose dashboard/facts/recommendations/reports.
-6. AI chat endpoint returns controlled facts-first response scaffold.
+- Faster campaign and traffic-quality diagnostics from uploaded marketing data.
+- Safer AI outputs because recommendations and reports are grounded in detected facts and bounded processed context.
+- Better auditability through process runs, process steps, import statuses, provider/model metadata and analysis runs.
+- Better product validation via a lightweight `/api/ui` test interface before building a full frontend.
+- Foundation for future multi-source analytics across AppsFlyer, Google Ads, Meta Ads and other marketing channels.
 
-## 5) Scope boundaries (V1)
-### Included
-- CSV-based ingestion model.
-- Deterministic rule-based fact generation.
-- Facts-first AI recommendation/report generation.
-- Programmatic API access for dashboard and insights.
+## 3. Delivered capabilities
 
-### Not included yet
-- Direct Google Ads / Meta Ads API live integrations.
-- Full production persistence wiring for all reader/writer handlers.
-- Autonomous optimization loops.
+### Data ingestion and processing
 
-## 6) Program Status by Epic
-- Epic 0–4: Foundation, architecture, schema, and API scaffolding complete.
-- Epic 5: Import storage + queue publication complete.
-- Epic 6: Defensive AI services complete.
-- Epic 7: Analysis engine and V1 rules complete.
-- Epic 8: AI output orchestration and persistence abstraction complete.
-- Epic 9: Reader API surface complete.
+- Project lifecycle APIs.
+- File Hub upload, profiling, classification, manual tagging, process/reprocess and delete.
+- AppsFlyer stream processing from object storage.
+- ClickHouse storage for normalized events and KPI snapshots.
+- PostgreSQL persistence for facts and operational records.
 
-## 7) Risks and Mitigations
-- **Risk:** Some flows are currently scaffolded with in-memory implementations.
-  - **Mitigation:** Replace with repository-backed persistence in next execution wave.
-- **Risk:** Storage adapter is local filesystem in current implementation.
-  - **Mitigation:** Swap adapter with S3/MinIO provider without changing API contracts.
-- **Risk:** Worker runtime integration not fully E2E wired yet.
-  - **Mitigation:** Prioritize parser/normalizer/ClickHouse write + fact persistence sprint.
+### Intelligence and AI
 
-## 8) Next Execution Wave (recommended)
-1. Replace in-memory writer/reader stores with DB repositories.
-2. Implement streaming CSV parser + normalization in worker.
-3. Wire metrics writes into ClickHouse and facts into PostgreSQL.
-4. Connect AI orchestrator to persisted facts/recommendations/reports.
-5. Add integration and e2e tests across upload-to-insight flow.
+- Deterministic detected facts.
+- AI recommendations and reports generated from facts only.
+- Semantic entities/relationships and context objects for better grounding.
+- Explicit AI analysis runs that can be triggered independently from file imports.
+- Controlled questions/chat with intent routing and bounded data access.
 
-## 9) Success Criteria for Stakeholders
-- Upload a marketing CSV and track import status.
-- View normalized campaign/keyword-level insights.
-- See deterministic detected facts for key performance issues.
-- Receive generated recommendations and AI summary report.
-- Ask controlled questions via AI chat over project facts.
+### Observability and validation
+
+- Process audit tables for stage-level observability.
+- Status/error summaries on raw files and imports.
+- Analysis-run list/detail reader endpoints.
+- HTML/JavaScript test UI served by the admin app.
+
+## 4. Current user-facing flow
+
+1. Create/select a project.
+2. Upload an AppsFlyer CSV in File Hub.
+3. Review automatic classification and manually tag if needed.
+4. Trigger processing.
+5. Monitor raw file, import flow and process-run status.
+6. Review facts, recommendations and reports.
+7. Trigger a manual AI analysis run when needed.
+8. Ask controlled questions through `/questions` or the `/ai-chat` compatibility endpoint.
+
+## 5. Guardrails
+
+- Raw CSV is never analyzed directly by AI.
+- AI must not invent metrics, trends or profitability claims.
+- Controlled chat does not expose Text-to-SQL.
+- AppsFlyer-only data cannot be used to claim ROAS, CPA, CAC or profitability without a trusted cost source.
+
+## 6. Remaining program risks
+
+| Risk | Impact | Mitigation |
+| --- | --- | --- |
+| Google Ads CSV processing is not implemented yet | Original V1 Google Ads milestone is not complete | Prioritize Google Ads File Hub parser/normalizer/fact generation next. |
+| Cost metrics lack a trusted source | ROI/profitability questions must be limited | Add Google Ads/Meta spend adapters or another trusted cost-source integration. |
+| Local infra lacks a full one-command data stack | Slower onboarding and QA | Add ClickHouse and MinIO/S3 to local compose or document cloud/local profiles clearly. |
+| AI provider observability is partial | Harder cost/latency governance | Add prompt versions, token/cost estimates and latency records. |
+
+## 7. Recommended next milestone
+
+Deliver a Google Ads CSV processing slice that uses the existing File Hub and AI guardrails:
+
+Upload Google Ads CSV → stream parse → normalize campaign/keyword metrics → write ClickHouse metrics → generate deterministic facts such as `HIGH_SPEND_ZERO_CONVERSIONS` → run AI analysis → show insight in dashboard and controlled questions.
