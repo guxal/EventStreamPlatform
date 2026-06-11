@@ -250,3 +250,43 @@ The controller does **not** use a class-level `@ApiTags('events')`, so project/i
 - Keep the existing EventStream core endpoints intact.
 - File Hub itself only profiles/classifies; AppsFlyer parsing starts in the processor-worker after the process endpoint.
 - Google Ads parsing and AppsFlyer + Google Ads joins remain future work.
+
+---
+
+## Current additions: reprocess/delete, AI analysis handoff, and test UI
+
+The File Hub remains the canonical raw-file entrypoint for marketing CSV uploads. Recent project layers build on top of this contract rather than bypassing it.
+
+### Additional File Hub operations
+
+- `DELETE /projects/:id/files/:fileId` removes File Hub metadata and the stored raw object.
+- `POST /projects/:id/files/:fileId/reprocess` resets a stuck, failed, or completed file/import and republishes processing to the `marketing-imports` queue.
+- `POST /projects/:id/files/:fileId/process` remains the normal trigger for `READY_TO_PROCESS` files.
+
+### Relationship with analysis runs
+
+Import processing and AI analysis are intentionally separate:
+
+1. File Hub/import processing creates processed data, facts, semantic/context records, recommendations and reports when the import pipeline reaches the AI step.
+2. Manual AI analysis runs can be created later with `POST /projects/:id/analysis-runs`.
+3. Manual runs publish `generate-ai-analysis` jobs to the `marketing-analysis` queue and operate only on bounded processed data.
+
+This separation allows users to regenerate recommendations/reports or ask new questions without re-uploading or reprocessing a raw file.
+
+### Relationship with controlled questions/chat
+
+The reader's controlled questions layer consumes File Hub outputs indirectly through PostgreSQL and ClickHouse repositories. It must never read the raw object or raw CSV fields. The preferred endpoint is `POST /projects/:id/questions`; `POST /projects/:id/ai-chat` exists as a compatibility alias.
+
+### HTML test UI coverage
+
+The framework-free test UI at `apps/admin/src/assets/atlas-ai-test-ui.html` exercises the Bronze Layer manually:
+
+- upload a raw CSV,
+- list raw files,
+- inspect profile/classification/status,
+- apply manual tags,
+- process or reprocess files,
+- delete raw files,
+- monitor import/process status and linked analysis runs.
+
+When `apps/admin` is running, the UI is served from `/api/ui`.

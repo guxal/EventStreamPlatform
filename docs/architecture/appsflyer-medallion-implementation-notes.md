@@ -172,3 +172,38 @@ AppsFlyer import processing remains independent from manual AI regeneration. Aft
 Manual AI analysis outputs are linked back with `analysis_run_id`, provider, model, generation status, import/file filters, source, and report type. Mock output must remain visibly marked as `provider=mock`, `model=mock-local`, and `generation_status=MOCKED` so it cannot be mistaken for real provider-generated recommendations or reports.
 
 The controlled question layer is exposed through generic reader routes (`POST /projects/:id/questions` and the compatibility alias `POST /projects/:id/ai-chat`). Questions are routed through deterministic intents and controlled repository functions. The LLM receives only bounded JSON returned by those functions; it must not generate SQL, read raw CSV, inspect unbounded ClickHouse rows, or claim ROAS/CPA/CAC for AppsFlyer-only data without a reliable cost source.
+
+---
+
+## Current additions: analysis runs and controlled AI questions
+
+The AppsFlyer Medallion path now feeds two AI-facing surfaces:
+
+1. Import-time AI output generation, executed after deterministic facts and optional semantic/context enrichment are persisted.
+2. Manual analysis runs, created independently from imports with `POST /projects/:id/analysis-runs` and consumed from the `marketing-analysis` queue as `generate-ai-analysis` jobs.
+
+### Manual analysis runs
+
+Manual runs are useful when users want to regenerate or scope AI outputs over already processed data without reprocessing the raw CSV. They carry filters such as source, report type, import ID, raw file ID, date range, analysis type, provider and model. Outputs are persisted with `analysis_run_id` links and provider/model metadata.
+
+### Controlled questions over AppsFlyer data
+
+`POST /projects/:id/questions` and the `/ai-chat` compatibility alias use controlled intent routing and bounded data functions. AppsFlyer-specific data functions can answer over:
+
+- project overview,
+- import summary,
+- events by name,
+- media sources,
+- campaigns,
+- blocked traffic,
+- deterministic facts,
+- recommendations,
+- reports,
+- semantic entities/relationships,
+- context objects.
+
+The question layer must keep the AppsFlyer cost-source guardrail: ROAS, CPA, CAC, spend and profitability are unavailable unless a trusted cost source is present.
+
+### Test UI support
+
+`apps/admin/src/assets/atlas-ai-test-ui.html` includes tabs for monitoring AppsFlyer import status, process audit, analysis runs, AI outputs and controlled questions. Use this UI as the fastest manual QA path before adding automated E2E coverage.

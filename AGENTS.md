@@ -5,6 +5,14 @@ This file is the implementation guide and feedback memory for future AI/code age
 
 We are extending the existing EventStream Platform into an AI Marketing Copilot **without rebuilding from zero**.
 
+
+## Current Project Status Snapshot (Updated)
+- Canonical working backend slice: File Hub raw CSV upload → AppsFlyer stream processing → ClickHouse Silver/Gold writes → PostgreSQL facts/audit/semantic/context → facts-first AI outputs → controlled questions/chat.
+- Explicit AI analysis runs are implemented independently from imports through `POST /projects/:id/analysis-runs`, the `marketing-analysis` queue, and the `generate-ai-analysis` worker job.
+- Chat with IA is now the controlled questions layer: `POST /projects/:id/questions` is preferred and `POST /projects/:id/ai-chat` remains a compatibility alias. The flow is intent routing → bounded data function → provider/fallback answer.
+- The framework-free HTML/JavaScript test UI lives at `apps/admin/src/assets/atlas-ai-test-ui.html` and is served by `apps/admin` from `/api/ui` (admin default port `3002`).
+- Current production-like processing is AppsFlyer CSV. Google Ads CSV remains the next milestone for the original V1 target.
+
 ## Epic 0 Status (Completed)
 - E0-1: Architecture target confirmed: extend existing EventStream core.
 - E0-2: Metrics storage selected: **ClickHouse** for V1.
@@ -189,6 +197,7 @@ Rule for future changes:
 - `semantic_entities`
 - `semantic_relationships`
 - `context_objects`
+- `analysis_runs`
 
 ## ClickHouse Tables (Implemented)
 - `marketing_daily_metrics`
@@ -320,11 +329,11 @@ User Query → Intent Classifier → Controlled Function → JSON Result → Fin
 - Store provider/model/prompt metadata with AI outputs for traceability.
 - Continue preserving insufficient-data behavior when facts are empty or when required metrics are unavailable.
 
-## V1 First Milestone (Execution Target)
-Upload a Google Ads CSV, process it with streams, normalize campaigns, store metrics, detect `HIGH_SPEND_ZERO_CONVERSIONS`, and show first insight in dashboard.
+## V1 First Milestone (Next Execution Target)
+Current completed processing is AppsFlyer CSV. The next milestone remains: upload a Google Ads CSV, process it with streams, normalize campaigns/keywords, store metrics, detect `HIGH_SPEND_ZERO_CONVERSIONS`, and show the first insight in dashboard/questions.
 
 ## Epic 14 Status (Completed) — Explicit AI Analysis Runs & Controlled Questions
-- Added `analysis_runs` as the explicit AI generation process separate from file imports, with QUEUED/RUNNING/COMPLETED/WARNING/FAILED/SKIPPED lifecycle and provider/model audit metadata.
+- Added `analysis_runs` as the explicit AI generation process separate from file imports, with QUEUED/RUNNING/COMPLETED/COMPLETED_WITH_WARNINGS/FAILED/SKIPPED lifecycle and provider/model audit metadata.
 - API Writer can create manual AI analysis runs under generic `/projects/:id/analysis-runs` and publish `generate-ai-analysis` jobs on the `marketing-analysis` queue.
 - Processor Worker consumes `marketing-analysis` jobs independently from import processing and generates facts-first recommendations/reports from bounded processed context only.
 - AI outputs now link back to `analysis_run_id` and clearly mark mock output as `provider=mock`, `model=mock-local`, `generation_status=MOCKED`.
@@ -335,4 +344,5 @@ Upload a Google Ads CSV, process it with streams, normalize campaigns, store met
 - A framework-free HTML/JavaScript test UI lives at `apps/admin/src/assets/atlas-ai-test-ui.html`.
 - When `apps/admin` is running, it is served from `/api/ui`; admin defaults to port `3002` so api-reader can keep `3000` and api-writer can keep `3001`.
 - The UI stores endpoint/project config in browser localStorage and calls only generic multi-source Writer/Reader endpoints.
+- The UI covers project setup, File Hub upload/list/detail/tag/process/reprocess/delete, AppsFlyer reader views, facts, recommendations, reports, analysis runs, process monitoring, controlled questions, and `/ai-chat` alias testing.
 - The test UI includes a `Monitoreo jobs` tab for polling raw file status, import flow, process runs, analysis run detail, and AI outputs linked to an `analysisRunId`.

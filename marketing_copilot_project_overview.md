@@ -1,134 +1,123 @@
 # AI Marketing Copilot — Project Overview
 
-## Executive Summary
-AI Marketing Copilot is a data-driven program designed to transform raw marketing performance data into actionable business decisions.
+## 1. Product direction
 
-The platform ingests campaign-level data (initially CSV-based), processes it through deterministic analytics, detects prioritized issues/opportunities, and produces controlled AI recommendations and reports for growth teams.
+AI Marketing Copilot is a feature layer inside EventStream Platform. It turns uploaded marketing CSV data into normalized events/KPIs, deterministic detected facts, semantic/context objects, AI recommendations/reports, and controlled AI answers.
 
-This project is focused on **decision support**, not autonomous optimization.
+The implementation intentionally extends the existing EventStream core instead of rebuilding ingestion, queues, workers, or reader APIs from scratch.
 
----
+## 2. Current implementation snapshot
 
-## Project Objective
-Build a reliable Marketing Intelligence layer that enables teams to:
+The current backend is strongest for the **AppsFlyer CSV** path:
 
-1. consolidate campaign data,
-2. evaluate KPI health consistently,
-3. detect critical performance problems quickly,
-4. receive explainable recommendations,
-5. generate structured reports for recurring review cycles.
+1. User creates a project.
+2. User uploads a CSV into File Hub.
+3. File Hub stores the raw object and profiles/classifies the stream.
+4. User manually tags the file if classification confidence is insufficient.
+5. User triggers processing only once the raw file is `READY_TO_PROCESS`.
+6. `processor-worker` reads the object stream and runs the AppsFlyer pipeline.
+7. Normalized events are written to ClickHouse.
+8. KPI snapshots and deterministic facts are generated.
+9. Facts are persisted in PostgreSQL.
+10. Semantic entities, relationships and context objects are optionally built.
+11. AI recommendations/reports are generated from facts and bounded context.
+12. Reader APIs and controlled questions/chat expose the results.
 
----
+## 3. Completed capability areas
 
-## Business Value
-- Faster diagnosis of performance issues (spend waste, low efficiency, scaling signals).
-- Standardized analysis criteria across teams and accounts.
-- Reduced manual analyst effort for repetitive reporting.
-- Better decision governance through facts-first AI outputs.
+### EventStream core extension
 
----
+- Existing NestJS + Nx app structure preserved.
+- Existing core event ingestion retained.
+- Marketing capabilities isolated under `libs/marketing-*` and marketing-specific app endpoints.
 
-## Scope (V1)
+### File Hub / Bronze Layer
 
-### Included
-- Project lifecycle management.
-- CSV import workflow for marketing datasets.
-- Raw file storage and async processing orchestration.
-- Deterministic analysis engine with predefined rules.
-- Structured fact generation (`detected facts`).
-- AI recommendations generated from facts.
-- AI report generation from facts.
-- Reader APIs for dashboards, facts, recommendations, and reports.
-- Controlled AI chat endpoint for project-level questions.
+- Raw CSV upload endpoint.
+- Object storage write before processing.
+- Stream profiling and deterministic report classification.
+- Status lifecycle for upload/profile/review/process/completion/failure.
+- Manual tags for source/report type.
+- Process, reprocess, delete, list and detail actions.
 
-### Excluded (V1)
-- Direct live integrations with ad network APIs.
-- Fully autonomous optimization/bidding actions.
-- Open Text-to-SQL access.
-- Predictive modeling and reinforcement-learning loops.
+### AppsFlyer Medallion processing
 
----
+- Queue-driven AppsFlyer worker path.
+- Object-stream CSV parsing.
+- Column mapping, event value parsing, normalization and row hashing.
+- ClickHouse `marketing.marketing_events` Silver table.
+- ClickHouse metric snapshots for Gold KPI summaries.
+- AppsFlyer deterministic facts.
+- Audit/error status across Bronze, Silver, Gold, semantic/context and AI phases.
 
-## Functional Flow (High-Level)
+### Semantic & Context Layer
 
-```mermaid
-flowchart TD
-  U[User / Analyst] --> I[Upload Marketing CSV]
-  I --> S[Raw Storage]
-  S --> Q[Async Processing Queue]
-  Q --> P[Parser + Normalization]
-  P --> M[Metrics Layer]
-  M --> A[Deterministic Analysis Engine]
-  A --> F[Detected Facts]
-  F --> R[AI Recommendations]
-  F --> REP[AI Reports]
-  R --> D[Dashboard & Insights API]
-  REP --> D
-  D --> U
-```
+- PostgreSQL semantic entities.
+- PostgreSQL semantic relationships.
+- PostgreSQL context objects.
+- Fact enrichment links to semantic/context objects.
+- Bounded AI context builder that excludes raw CSV and includes warnings/unavailable metrics.
 
----
+### AI outputs and providers
 
-## Analytical Model
-The analytical core is deterministic and rule-based. It evaluates KPI signals such as:
+- Defensive system prompt.
+- Mock, OpenAI, Claude and Gemini provider abstractions.
+- Recommendation/report generation from facts and bounded context.
+- Provider/model/prompt metadata stored with AI outputs.
+- Deterministic fallback when AI provider calls are optional and fail.
 
-- high spend with zero conversions,
-- low CTR,
-- high CPC,
-- high CPA,
-- low ROAS,
-- keyword waste,
-- scaling opportunities,
-- data quality warnings.
+### Explicit AI analysis runs
 
-Each detection produces a structured fact with severity, confidence, and evidence summary.
+- `analysis_runs` lifecycle separate from imports.
+- Writer endpoint to create manual runs.
+- `marketing-analysis` queue and `generate-ai-analysis` job.
+- Worker processor for manual AI analysis.
+- AI outputs linked back to `analysis_run_id`.
 
----
+### Controlled questions / chat with IA
 
-## AI Model Role (Guarded)
-AI is used as an explanation and recommendation layer over validated facts.
+- Reader endpoint `POST /projects/:id/questions`.
+- Compatibility alias `POST /projects/:id/ai-chat`.
+- Intent routing instead of open Text-to-SQL.
+- Controlled data functions over processed facts/KPIs/semantic/context/recommendations/reports.
+- Provider-backed answer generation with deterministic fallback.
 
-### Core principles
-- AI **does not** analyze raw source files directly.
-- AI outputs are constrained to existing detected facts.
-- AI must avoid inventing metrics/trends.
-- AI must explicitly indicate insufficient data when applicable.
+### HTML test UI
 
-This design improves trustworthiness and auditability.
+- `apps/admin/src/assets/atlas-ai-test-ui.html`.
+- Served from `/api/ui` by `apps/admin`.
+- Supports File Hub testing, monitoring, analysis runs, AI outputs, controlled questions and `/ai-chat` alias.
 
----
+## 4. Implemented epics
 
-## Target Users
-- Growth marketers
-- Performance marketing managers
-- Marketing analysts
-- RevOps / GTM operations teams
-- Agency account teams
+- Epic 0: architecture target and naming convention.
+- Epic 1: marketing libraries and base contracts.
+- Epic 2: PostgreSQL marketing schema.
+- Epic 3: ClickHouse marketing metrics schema.
+- Epic 5: raw import storage metadata and queue publication.
+- Epic 6: facts-first AI foundation.
+- Epic 7: deterministic analysis rules.
+- Epic 8: AI output orchestration and persistence.
+- Epic 9: reader endpoints.
+- Epic 10: File Hub / Bronze Layer.
+- Epic 11: AppsFlyer Medallion processing.
+- Epic 12: semantic/context layer.
+- Epic 13: process audit and AI provider metadata.
+- Epic 14: explicit AI analysis runs and controlled questions/chat.
 
----
+## 5. Current boundaries
 
-## Expected Outcomes
-- Shorter time from data upload to actionable insight.
-- More consistent optimization decisions.
-- Reproducible analysis framework across stakeholders.
-- Executive-friendly reporting readiness with minimal manual effort.
+- Google Ads and Meta Ads direct/API integrations are not implemented.
+- Google Ads CSV processing remains a future milestone.
+- AppsFlyer alone must not be treated as a reliable cost source for ROAS/CPA/CAC.
+- Controlled questions/chat must not access raw CSV or generate arbitrary SQL.
+- ClickHouse must be configured for real worker processing; no-op ClickHouse modes are useful only for local development.
 
----
+## 6. Next recommended roadmap
 
-## Program Status
-The project currently has a complete V1 scaffold covering ingestion APIs, queue orchestration, core schemas, deterministic analysis modules, and AI orchestration services.
-
-The next phase focuses on full production wiring (persistent repositories, worker runtime integration, and end-to-end test hardening).
-
----
-
-## Success Criteria
-A successful V1 allows a team to:
-1. create a project,
-2. upload marketing CSV data,
-3. monitor import status,
-4. view normalized KPI insights,
-5. review detected facts,
-6. consume AI recommendations,
-7. generate an AI report,
-8. query insights via controlled AI chat.
+1. Implement Google Ads CSV processing through the File Hub.
+2. Add a trusted cost-source adapter for cross-channel ROI metrics.
+3. Harden local/staging infrastructure with ClickHouse and object storage defaults.
+4. Add E2E tests for upload → process → facts → analysis runs → questions.
+5. Add AI provider observability for prompt versions, token/cost estimates and latency.
+6. Continue improving the HTML test UI while avoiding a heavyweight frontend dependency until product flows stabilize.

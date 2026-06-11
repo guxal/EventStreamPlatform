@@ -1,345 +1,425 @@
-# AI Marketing Copilot V1 — Documento técnico de arquitectura y flujo actual
+# AI Marketing Copilot — Documento técnico de arquitectura y estado actual
 
-> Este documento resume **lo implementado** en el repositorio hasta ahora, el **flujo técnico actual** y los **siguientes puntos de integración** para completar el producto V1.
-
----
-
-## 1. Objetivo técnico del sistema
-
-Extender EventStream Platform con un feature-layer de Marketing Copilot para:
-
-1. crear proyectos,
-2. recibir imports CSV,
-3. persistir payload de archivo en object storage,
-4. encolar procesamiento asíncrono,
-5. calcular/consultar métricas y hechos,
-6. generar recomendaciones/reportes AI **facts-first**.
-
-El sistema mantiene el core existente (`api-writer`, `api-reader`, `processor-worker`) y añade módulos de marketing sin reescritura del core.
+> Estado actualizado del repositorio: EventStream Platform extendido con File Hub, pipeline AppsFlyer medallion, capa semántica/contextual, análisis AI explícito, preguntas controladas/chat con IA y UI HTML de pruebas.
 
 ---
 
-## 2. Inventario de componentes implementados
+## 1. Objetivo del sistema
 
-## 2.1 Apps
+El objetivo es extender EventStream Platform con un **AI Marketing Copilot** que permita:
 
-- `apps/api-writer`
-  - Endpoints de eventos + nuevos endpoints de proyectos/imports.
-  - Publicación de jobs `process-marketing-import` en queue `marketing-imports`.
-  - Escritura de payload CSV en adaptador de object storage local.
+1. crear proyectos de marketing,
+2. subir CSVs al File Hub,
+3. almacenar el raw file separado de los datos normalizados,
+4. perfilar y clasificar archivos antes del procesamiento,
+5. procesar archivos por cola de forma stream-based,
+6. persistir eventos/metric snapshots en ClickHouse,
+7. persistir hechos, auditoría, contexto semántico y salidas AI en PostgreSQL,
+8. generar recomendaciones/reportes facts-first,
+9. responder preguntas controladas con IA sobre datos procesados,
+10. probar el flujo completo desde un HTML sin framework.
 
-- `apps/api-reader`
-  - Endpoints de lectura de métricas heredados.
-  - Endpoints de lectura por proyecto: dashboard, campaigns, keywords, facts, recommendations, reports, ai-chat.
-
-- `apps/processor-worker`
-  - Base de worker existente.
-  - Migraciones SQL añadidas (PostgreSQL + ClickHouse) para la capa marketing.
-
-## 2.2 Librerías nuevas
-
-- `libs/marketing-shared`
-  - Enums y contratos de dominio (`FactType`, `Severity`, `DetectedFact`, etc.).
-
-- `libs/marketing-plugins`
-  - Analysis Engine determinístico + 8 reglas V1.
-
-- `libs/marketing-application`
-  - Capa AI defensiva (prompt, generadores, orquestación recommendations/reports).
-
-- `libs/marketing-infrastructure`
-  - Repositorios AI (in-memory actuales).
-  - `ObjectStorageService` (adaptador local filesystem para stage de ingestión).
+El core EventStream se conserva: `api-writer`, `api-reader`, `processor-worker`, PostgreSQL, Redis/BullMQ y arquitectura modular Nx.
 
 ---
 
-## 3. Diagrama de arquitectura implementada (estado actual)
+## 2. Estado funcional por capa
+
+### 2.1 Core y apps
+
+| App | Estado actual |
+| --- | --- |
+| `apps/api-writer` | Expone eventos core, proyectos, File Hub, legacy imports y creación de analysis runs. Publica jobs en `marketing-imports` y `marketing-analysis`. |
+| `apps/api-reader` | Expone métricas core, dashboard/overview, AppsFlyer reader views, facts, recommendations, reports, semantic/context, process audit, analysis runs, questions y `ai-chat` alias. |
+| `apps/processor-worker` | Consume imports AppsFlyer y analysis runs AI. Incluye migraciones PostgreSQL y ClickHouse. |
+| `apps/admin` | Sirve una UI HTML/JS de pruebas en `/api/ui` y endpoints admin auxiliares de procesos. |
+
+### 2.2 Librerías marketing
+
+| Librería | Responsabilidad |
+| --- | --- |
+| `marketing-shared` | Contratos compartidos: facts, File Hub, AppsFlyer, semantic/context, process audit, analysis runs y jobs. |
+| `marketing-plugins` | Plugins AppsFlyer, parser stream, mapper, normalizer, KPI calculator, deterministic facts y analysis engine de reglas V1. |
+| `marketing-application` | Orquestación File Hub, AI providers, recommendations/reports, AI context builder, semantic/context builders, analysis-run runner y controlled questions. |
+| `marketing-infrastructure` | Object storage, PostgreSQL repositories, ClickHouse repositories, process audit, semantic/context repositories y AI output repositories. |
+
+---
+
+## 3. Arquitectura actual
 
 ```mermaid
 flowchart LR
-  subgraph Client Layer
-    C1[Dashboard / API Client]
+  UI[Admin Test UI / API Client] --> W[api-writer]
+  UI --> R[api-reader]
+
+  subgraph Writer[api-writer]
+    W1[Projects]
+    W2[File Hub upload/tag/process/reprocess/delete]
+    W3[Create analysis run]
   end
 
-  subgraph Writer[apps/api-writer]
-    W1[POST /projects]
-    W2[POST /projects/:id/imports/csv]
-    W3[In-memory project/import registry]
-    W4[ObjectStorageService]
-    W5[EventProducerService.publishMarketingImport]
+  subgraph Queues[Redis / BullMQ]
+    Q1[marketing-imports\nprocess-marketing-import]
+    Q2[marketing-analysis\ngenerate-ai-analysis]
   end
 
-  subgraph Queue[Redis/BullMQ]
-    Q1[marketing-imports queue]
-    J1[process-marketing-import job]
+  subgraph Worker[processor-worker]
+    P1[AppsFlyer import processor]
+    P2[AI analysis processor]
   end
 
-  subgraph Reader[apps/api-reader]
-    R1[GET /projects/:id/dashboard]
-    R2[GET /projects/:id/campaigns]
-    R3[GET /projects/:id/keywords]
-    R4[GET /projects/:id/facts]
-    R5[GET /projects/:id/recommendations]
-    R6[GET /projects/:id/reports]
-    R7[POST /projects/:id/ai-chat]
+  subgraph Application[marketing-application]
+    FH[FileHubService]
+    SB[SemanticBuilderService]
+    CB[ContextBuilderService]
+    AIC[AiContextBuilderService]
+    AIR[AiAnalysisRunnerService]
+    QAS[AiQuestionAnsweringService]
   end
 
-  subgraph Domain[Marketing libs]
-    S1[marketing-shared contracts]
-    P1[marketing-plugins analysis engine]
-    A1[marketing-application AI services]
-    I1[marketing-infrastructure repos]
+  subgraph Storage[Storage]
+    OBJ[(Object storage adapter)]
+    PG[(PostgreSQL transactional/semantic/AI/audit)]
+    CH[(ClickHouse events + snapshots)]
   end
 
-  subgraph Storage[Data Stores]
-    PG[(PostgreSQL schema: marketing tables)]
-    CH[(ClickHouse metrics tables)]
-    OBJ[(Object storage adapter - filesystem)]
-  end
+  W --> W1
+  W --> W2 --> FH --> OBJ
+  W2 --> PG
+  W2 --> Q1 --> P1
+  W3 --> PG
+  W3 --> Q2 --> P2
 
-  C1 --> W1
-  C1 --> W2
-  W2 --> W3
-  W2 --> W4
-  W4 --> OBJ
-  W2 --> W5
-  W5 --> Q1 --> J1
+  P1 --> OBJ
+  P1 --> CH
+  P1 --> PG
+  P1 --> SB --> PG
+  P1 --> CB --> PG
+  P1 --> AIC
+  P1 --> PG
 
-  C1 --> R1
-  C1 --> R2
-  C1 --> R3
-  C1 --> R4
-  C1 --> R5
-  C1 --> R6
-  C1 --> R7
+  P2 --> AIR --> PG
+  P2 --> CH
 
-  S1 --> P1
-  S1 --> A1
-  A1 --> I1
-  PG --- Reader
-  CH --- Reader
+  R --> PG
+  R --> CH
+  R --> QAS --> PG
+  R --> QAS --> CH
 ```
 
 ---
 
-## 4. Flujo técnico de import (actual)
+## 4. Flujo File Hub / Bronze Layer
+
+El File Hub es el punto canónico para nuevos uploads de marketing CSV.
 
 ```mermaid
 sequenceDiagram
-  participant Client
+  participant User
   participant Writer as api-writer
   participant Storage as ObjectStorageService
-  participant Queue as BullMQ(marketing-imports)
+  participant PG as PostgreSQL
+  participant Queue as marketing-imports
 
-  Client->>Writer: POST /projects/:id/imports/csv {fileName, contentBase64}
-  Writer->>Writer: Validar proyecto en memoria
-  Writer->>Storage: putObject(bucket, objectKey, contentBase64)
-  Storage-->>Writer: {uri, sizeBytes}
-  Writer->>Writer: Construye DataImportRecord (PENDING)
-  Writer->>Queue: add(process-marketing-import, payload, retry/backoff)
-  Writer-->>Client: DataImportRecord + metadata de storage
+  User->>Writer: POST /projects/:id/files multipart file or contentBase64
+  Writer->>Storage: store raw CSV object
+  Writer->>Writer: stream profile + deterministic classification
+  Writer->>PG: raw_import_files status/profile/classification/tags
+  Writer-->>User: raw file detail + status
+  User->>Writer: PATCH /projects/:id/files/:fileId/tags (if manual review needed)
+  User->>Writer: POST /projects/:id/files/:fileId/process
+  Writer->>PG: create/reuse data_import + set PROCESSING
+  Writer->>Queue: process-marketing-import
 ```
 
-### Propiedades relevantes del job
+Current lifecycle:
 
-- queue: `marketing-imports`
-- job name: `process-marketing-import`
-- `attempts: 3`
-- `backoff: exponential (2s)`
-- `removeOnComplete: 1000`
-- `removeOnFail: 5000`
+`UPLOADED → PROFILING → PROFILED → READY_TO_PROCESS | NEEDS_REVIEW → PROCESSING → COMPLETED | FAILED`
 
----
+Important guardrails:
 
-## 5. Contratos de dominio (marketing-shared)
-
-### Enums clave
-
-- `EntityType`: campaign, adgroup, keyword, creative, account.
-- `FactType`: 8 tipos V1 (HIGH_SPEND_ZERO_CONVERSIONS, LOW_CTR, etc.).
-- `Severity`: INFO, WARNING, CRITICAL.
-- `ImportStatus`: PENDING, PROCESSING, COMPLETED, FAILED.
-
-### `DetectedFact`
-
-Estructura base de hechos determinísticos:
-
-- `entityId`, `entityType`
-- `factType`, `severity`, `confidence`
-- `temporalContext`
-- `metricsSummary`
-- `recommendationHint?`
-
-Estos hechos son la interfaz entre análisis determinístico y capa AI.
+- Unknown or low-confidence files must go to `NEEDS_REVIEW`.
+- Only `READY_TO_PROCESS` files should be queued for processing.
+- The current processing path is AppsFlyer-only. Non-AppsFlyer sources are accepted as metadata/filters for future extensibility but should not be silently processed as if supported.
 
 ---
 
-## 6. Analysis Engine (marketing-plugins)
-
-## 6.1 Diseño
-
-- `AnalysisEngineService` orquesta plugins.
-- `BaseAnalysisPlugin` normaliza ejecución por entidad y contrato de salida.
-- `AnalysisMetricRow` define input tabular homogéneo para reglas.
-- `AnalysisThresholds` y `DEFAULT_ANALYSIS_THRESHOLDS` parametrizan sensibilidad.
-
-## 6.2 Reglas implementadas (V1)
-
-1. HIGH_SPEND_ZERO_CONVERSIONS
-2. LOW_CTR
-3. HIGH_CPC
-4. HIGH_CPA
-5. LOW_ROAS
-6. KEYWORD_WASTE
-7. SCALING_OPPORTUNITY
-8. DATA_QUALITY_WARNING
-
-Cada regla genera `DetectedFact` determinístico y auditable.
-
----
-
-## 7. Capa AI (marketing-application)
-
-## 7.1 Guardrails
-
-`AI_DEFENSIVE_SYSTEM_PROMPT` define restricciones:
-
-- usar solo facts provistos,
-- no inventar métricas/tendencias,
-- declarar insuficiencia de datos,
-- no analizar CSV crudo.
-
-## 7.2 Servicios
-
-- `AiExplainerService`: arma prompt controlado con facts.
-- `RecommendationGeneratorService`: transforma facts en recomendaciones estructuradas.
-- `ReportGeneratorService`: produce reporte markdown.
-- `AiOutputOrchestratorService`: genera y persiste outputs AI.
-
----
-
-## 8. Persistencia y esquemas
-
-## 8.1 PostgreSQL (transaccional)
-
-Migración `004_create_marketing_core_tables.sql` añade:
-
-- `projects`
-- `integrations`
-- `data_imports`
-- `raw_import_files`
-- `marketing_entities`
-- `entity_meta`
-- `detected_facts`
-- `recommendations`
-- `ai_reports`
-- `exchange_rates`
-- `project_privacy_settings`
-
-Con constraints e índices para filtros por proyecto, severidad, estado y tiempo.
-
-## 8.2 ClickHouse (time-series)
-
-Migración `001_create_marketing_metrics_tables.sql` añade:
-
-- `marketing.marketing_daily_metrics`
-- `marketing.marketing_metric_snapshots`
-
-Con `ReplacingMergeTree`, partición mensual y skipping indexes.
-
----
-
-## 9. API surface (estado actual)
-
-## 9.1 Writer
-
-- `POST /events` (existente)
-- `POST /projects`
-- `GET /projects`
-- `POST /projects/:id/imports/csv`
-- `GET /projects/:id/imports`
-
-## 9.2 Reader
-
-- `GET /metrics/:metricName`
-- `GET /metrics`
-- `GET /projects/:id/dashboard`
-- `GET /projects/:id/campaigns`
-- `GET /projects/:id/keywords`
-- `GET /projects/:id/facts`
-- `GET /projects/:id/recommendations`
-- `GET /projects/:id/reports`
-- `POST /projects/:id/ai-chat`
-
----
-
-## 10. Estado de madurez por capa
-
-- **API contract:** implementado a nivel scaffold funcional.
-- **Queue orchestration:** implementado.
-- **Storage write-before-queue:** implementado (adaptador local).
-- **Deterministic analysis:** implementado.
-- **AI defensiva:** implementada.
-- **DB wiring real (TypeORM + repos reales):** pendiente en varios endpoints/servicios.
-- **Worker end-to-end parse/normalize/clickhouse insert:** parcialmente scaffold; pendiente integración completa.
-
----
-
-## 11. Gap técnico actual (para producción)
-
-1. Reemplazar stores in-memory de `api-writer` y `api-reader` por repositorios persistentes.
-2. Conectar `raw_import_files` y `data_imports` reales en PostgreSQL.
-3. Implementar adapter S3/MinIO real en `ObjectStorageService`.
-4. Implementar consumer del job `process-marketing-import` con:
-   - parse CSV streaming,
-   - normalización,
-   - escritura a ClickHouse,
-   - ejecución de Analysis Engine,
-   - persistencia `detected_facts`.
-5. Conectar `AiOutputOrchestratorService` a rutas reader/admin o jobs.
-6. Añadir tests unitarios/e2e por módulo y flujo cross-service.
-
----
-
-## 12. Diagrama de target de integración (siguiente iteración)
+## 5. AppsFlyer Medallion pipeline
 
 ```mermaid
 flowchart TD
-  U[Upload CSV] --> W[api-writer]
-  W --> OF[(Object Storage S3/MinIO)]
-  W --> DI[(data_imports + raw_import_files)]
-  W --> MQ[marketing-imports queue]
-
-  MQ --> WK[processor-worker]
-  WK --> P[CSV parser stream]
-  P --> N[Normalizer]
-  N --> CH[(ClickHouse metrics)]
-  N --> ME[(marketing_entities)]
-  CH --> AE[Analysis Engine]
-  AE --> DF[(detected_facts)]
-
-  DF --> AI[AI Output Orchestrator]
-  AI --> RC[(recommendations)]
-  AI --> RP[(ai_reports)]
-
-  R[api-reader] --> CH
-  R --> DF
-  R --> RC
-  R --> RP
+  A[File Hub process trigger] --> B[marketing-imports job]
+  B --> C[Object stream]
+  C --> D[AppsFlyer CSV stream parser]
+  D --> E[Column mapper]
+  E --> F[Event Value parser]
+  F --> G[Normalizer]
+  G --> H[(ClickHouse marketing.marketing_events)]
+  G --> I[KPI calculator]
+  I --> J[(ClickHouse marketing_metric_snapshots)]
+  I --> K[Deterministic AppsFlyer facts]
+  K --> L[(PostgreSQL detected_facts)]
+  L --> M[Semantic builder]
+  M --> N[(semantic_entities / semantic_relationships)]
+  L --> O[Context builder]
+  O --> P[(context_objects)]
+  L --> Q[AI output orchestration]
+  Q --> R[(recommendations / ai_reports)]
 ```
+
+Supported AppsFlyer reports include installs, in-app events, non-organic in-app events, postbacks, conversions, blocked reports, ad revenue and uninstalls.
+
+Operational notes:
+
+- Processing reads from object storage streams; do not write full temporary CSVs to container disk for large exports.
+- Event Value parsing is defensive. Malformed values should become row warnings, not fatal import errors.
+- AppsFlyer is not a trusted cost source for V1. ROAS/CPA/CAC facts must not be generated from AppsFlyer alone.
+- Worker failure handling records status, summary and stage on `data_imports`, `raw_import_files` and process-audit tables.
 
 ---
 
-## 13. Referencias de código (archivos principales)
+## 6. Semantic & Context Layer
 
-- Guía de arquitectura/agentes: `AGENTS.md`
-- Writer API: `apps/api-writer/src/app/*`
-- Reader API: `apps/api-reader/src/app/*`
-- Queue producer: `libs/core-infrastructure/src/queues/*`
-- Marketing shared contracts: `libs/marketing-shared/src/*`
-- Analysis engine: `libs/marketing-plugins/src/analysis-engine/*`
-- AI application layer: `libs/marketing-application/src/ai/*`
-- AI repos + storage adapter: `libs/marketing-infrastructure/src/repositories/*`, `libs/marketing-infrastructure/src/storage/*`
-- PostgreSQL migration: `apps/processor-worker/src/database/migrations/004_create_marketing_core_tables.sql`
-- ClickHouse migration: `apps/processor-worker/src/database/migrations/clickhouse/001_create_marketing_metrics_tables.sql`
+The semantic/context layer stores AI grounding data in PostgreSQL while metrics/time series remain in ClickHouse.
 
+Implemented objects:
+
+- `semantic_entities`: canonical source-aware entities, aliases and metadata.
+- `semantic_relationships`: source-aware relationships between semantic entities.
+- `context_objects`: bounded AI grounding content generated from processed facts/KPIs.
+- `detected_facts.semantic_entity_id`, `related_semantic_entity_ids`, `context_object_ids`: fact enrichment links.
+
+Important behavior:
+
+- `SemanticBuilderService` and the AppsFlyer semantic adapter upsert entities/relationships from facts and KPI summaries.
+- `ContextBuilderService` writes bounded context objects for later AI grounding.
+- `AiContextBuilderService` filters facts by controlled dimensions, redacts raw/CSV fields, bounds payload size and records unavailable metrics/warnings.
+- Enrichment is optional unless `SEMANTIC_CONTEXT_STRICT=true`.
+
+---
+
+## 7. AI providers, outputs and explicit analysis runs
+
+### 7.1 Provider model
+
+The AI provider layer supports:
+
+- `mock` provider for deterministic/local behavior,
+- OpenAI provider,
+- Claude provider,
+- Gemini provider.
+
+Feature code should use the provider factory/orchestrator rather than instantiating providers directly.
+
+### 7.2 AI output rules
+
+AI outputs must be generated from:
+
+- detected facts,
+- processed KPI summaries,
+- semantic entities/relationships,
+- context objects,
+- explicit warnings/unavailable metrics.
+
+AI outputs must not be generated directly from raw CSV.
+
+### 7.3 Explicit analysis runs
+
+Manual analysis runs separate AI generation from import processing.
+
+Writer endpoint:
+
+- `POST /projects/:id/analysis-runs`
+
+Queue:
+
+- queue: `marketing-analysis`
+- job: `generate-ai-analysis`
+- attempts: `3`
+- backoff: exponential `2000ms`
+
+Processor:
+
+- `AiAnalysisProcessor` consumes `marketing-analysis`.
+- `AiAnalysisRunnerService` loads bounded processed context and writes recommendations/reports linked to `analysis_run_id`.
+
+Lifecycle:
+
+`QUEUED → RUNNING → COMPLETED | COMPLETED_WITH_WARNINGS | FAILED | SKIPPED`
+
+---
+
+## 8. Controlled questions and chat with IA
+
+The reader exposes controlled questions as the preferred chat path:
+
+- `POST /projects/:id/questions`
+- `POST /projects/:id/ai-chat` as compatibility alias
+
+Current intent router supports:
+
+- `PROJECT_SUMMARY`
+- `IMPORT_SUMMARY`
+- `TOP_FACTS`
+- `EVENT_PERFORMANCE`
+- `MEDIA_SOURCE_PERFORMANCE`
+- `CAMPAIGN_PERFORMANCE`
+- `BLOCKED_TRAFFIC`
+- `RECOMMENDATIONS`
+- `REPORT_SUMMARY`
+- `DATA_QUALITY`
+- `UNAVAILABLE_METRICS`
+- `SEMANTIC_CONTEXT`
+- `UNKNOWN`
+
+Flow:
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant Reader as api-reader
+  participant Router as AiQuestionIntentRouter
+  participant Data as AiQuestionDataService
+  participant AI as AiProviderFactory
+
+  User->>Reader: POST /projects/:id/questions {question, filters}
+  Reader->>Router: classify question
+  Router-->>Reader: controlled intent
+  Reader->>Data: fetch bounded processed data
+  Data-->>Reader: JSON facts/KPIs/context/limitations
+  Reader->>AI: generateText with defensive prompt + bounded JSON
+  AI-->>Reader: answer or fallback
+  Reader-->>User: answer, intent, usedData, limitations, provider/model/status
+```
+
+Guardrails:
+
+- No open Text-to-SQL.
+- No raw CSV access.
+- Cost-based metrics are marked unavailable without a trusted cost source.
+- If AI provider fails and `AI_REQUIRED` is not true, deterministic fallback answers are returned.
+
+---
+
+## 9. API surface summary
+
+### Writer
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/events` | Core event ingestion. |
+| `POST` | `/projects` | Create project. |
+| `GET` | `/projects` | List projects. |
+| `POST` | `/projects/:id/imports/csv` | Legacy CSV import compatibility. |
+| `GET` | `/projects/:id/imports` | Legacy import list. |
+| `POST` | `/projects/:id/files` | Upload raw file into File Hub. |
+| `GET` | `/projects/:id/files` | List File Hub files. |
+| `GET` | `/projects/:id/files/:fileId` | File detail. |
+| `PATCH` | `/projects/:id/files/:fileId/tags` | Manual source/report tagging. |
+| `POST` | `/projects/:id/files/:fileId/process` | Queue processing. |
+| `POST` | `/projects/:id/files/:fileId/reprocess` | Reset and queue again. |
+| `DELETE` | `/projects/:id/files/:fileId` | Delete metadata + stored object. |
+| `POST` | `/projects/:id/analysis-runs` | Create manual AI analysis run. |
+
+### Reader
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/metrics`, `/metrics/:metricName` | Core metrics compatibility. |
+| `GET` | `/projects/:id/dashboard` | Project dashboard summary. |
+| `GET` | `/projects/:id/overview` | Project overview. |
+| `GET` | `/projects/:id/metrics` | Project metrics. |
+| `GET` | `/projects/:id/entities/performance` | Entity performance. |
+| `GET` | `/projects/:id/events/by-name` | Events grouped by name. |
+| `GET` | `/projects/:id/appsflyer/*` | AppsFlyer-specific reader views. |
+| `GET` | `/projects/:id/facts` | Detected facts. |
+| `GET` | `/projects/:id/recommendations` | Recommendations. |
+| `GET` | `/projects/:id/reports` | AI reports. |
+| `GET` | `/projects/:id/semantic/entities` | Semantic entities. |
+| `GET` | `/projects/:id/semantic/relationships` | Semantic relationships. |
+| `GET` | `/projects/:id/context` | Context objects. |
+| `GET` | `/projects/:id/analysis-runs` | Analysis run list. |
+| `GET` | `/projects/:id/analysis-runs/:analysisRunId` | Analysis run detail. |
+| `GET` | `/projects/:id/processes` | Process audit runs. |
+| `GET` | `/projects/:id/processes/:runId` | Process audit detail. |
+| `GET` | `/projects/:id/imports/:importId/flow` | Import flow detail. |
+| `POST` | `/projects/:id/questions` | Controlled AI question. |
+| `POST` | `/projects/:id/ai-chat` | Chat compatibility alias. |
+
+---
+
+## 10. HTML test UI
+
+Source:
+
+- `apps/admin/src/assets/atlas-ai-test-ui.html`
+
+Served route:
+
+- `GET /api/ui` from `apps/admin`.
+
+Default port convention:
+
+- `api-reader`: `3000`
+- `api-writer`: `3001`
+- `admin`: `3002`
+
+The UI includes tabs for:
+
+- endpoint/project configuration stored in localStorage,
+- project creation/listing,
+- File Hub upload/list/detail/tag/process/reprocess/delete,
+- monitoring jobs/import flow/process runs/analysis runs,
+- AI outputs,
+- controlled questions and `/ai-chat` alias.
+
+---
+
+## 11. Persistence overview
+
+### PostgreSQL
+
+Implemented table families:
+
+- core marketing/project/import tables,
+- File Hub metadata and lifecycle columns,
+- detected facts,
+- recommendations and AI reports with provider/model/prompt metadata,
+- process audit runs and steps,
+- semantic entities and relationships,
+- context objects,
+- explicit analysis runs.
+
+### ClickHouse
+
+Implemented/defined tables:
+
+- `marketing.marketing_events` — AppsFlyer Silver normalized events.
+- `marketing.marketing_metric_snapshots` — Gold KPI snapshots.
+- `marketing.marketing_daily_metrics` — V1 generic metrics schema; not the primary AppsFlyer insert path today.
+
+---
+
+## 12. Remaining gaps / next work
+
+1. Implement Google Ads CSV processing path through the File Hub to satisfy the original V1 milestone.
+2. Add a trusted cost-source integration before enabling ROAS/CPA/CAC claims across channels.
+3. Harden ClickHouse configuration so staging/production cannot silently skip Silver/Gold writes.
+4. Add integrated E2E tests for upload → process → facts → analysis run → questions.
+5. Audit legacy compatibility paths and retire them once File Hub and repository-backed flows fully cover the same use cases.
+6. Add prompt/cost/latency observability for AI providers beyond provider/model metadata.
+7. Add MinIO/S3 and ClickHouse to local compose or provide a one-command local stack.
+
+---
+
+## 13. Canonical references
+
+- Agent memory: `AGENTS.md`
+- File Hub docs: `docs/architecture/file-hub-bronze-layer.md`
+- AppsFlyer pipeline docs: `docs/architecture/appsflyer-medallion-implementation-notes.md`
+- Technical assessment: `docs/analisis-proyecto-conclusiones-recomendaciones.md`
+- Test UI: `apps/admin/src/assets/atlas-ai-test-ui.html`
+- Writer controller: `apps/api-writer/src/app/app.controller.ts`
+- Reader controller: `apps/api-reader/src/app/app.controller.ts`
+- AI analysis processor: `apps/processor-worker/src/marketing/ai-analysis.processor.ts`
+- AI question services: `libs/marketing-application/src/ai/questions/*`
