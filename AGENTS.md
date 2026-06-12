@@ -332,6 +332,7 @@ User Query → Intent Classifier → Controlled Function → JSON Result → Fin
 - Import-scoped AI outputs are replace-by-scope (`project_id + import_id + source + report_type`) before regeneration to avoid duplicate recommendations/reports.
 - AppsFlyer fact persistence also replaces facts for the same import/source/report/raw-file scope before saving regenerated facts.
 - Continue preserving insufficient-data behavior when facts are empty or when required metrics are unavailable.
+- AI debug logging is available behind `AI_DEBUG_*` flags through structured JSON events, correlation IDs, sanitization/redaction, raw-data rejection before provider calls, and optional `ai_debug_traces` persistence for local/staging only. See `docs/AI_DEBUG_LOGGING.md`.
 
 ## V1 First Milestone (Next Execution Target)
 Current completed processing is AppsFlyer CSV. The next milestone remains: upload a Google Ads CSV, process it with streams, normalize campaigns/keywords, store metrics, detect `HIGH_SPEND_ZERO_CONVERSIONS`, and show the first insight in dashboard/questions.

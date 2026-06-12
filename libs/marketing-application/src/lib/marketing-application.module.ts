@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { QueueModule } from '@metrics-platform/core-infrastructure';
 import { MarketingInfrastructureModule } from '@metrics-platform/marketing-infrastructure';
 import { AiExplainerService } from '../ai/ai-explainer.service';
+import { AiDebugLoggerService, AiDebugSanitizerService } from '../ai/debug';
 import { AiContextBuilderService } from '../ai/context';
 import { AiProviderFactory } from '../ai/providers';
 import { RecommendationGeneratorService } from '../ai/recommendation-generator.service';
@@ -18,6 +19,8 @@ import { AppsFlyerSemanticAdapter, ContextBuilderService, SemanticBuilderService
   imports: [MarketingInfrastructureModule, QueueModule],
   providers: [
     AiExplainerService,
+    AiDebugLoggerService,
+    AiDebugSanitizerService,
     AiContextBuilderService,
     AiProviderFactory,
     RecommendationGeneratorService,
@@ -36,6 +39,8 @@ import { AppsFlyerSemanticAdapter, ContextBuilderService, SemanticBuilderService
   ],
   exports: [
     AiExplainerService,
+    AiDebugLoggerService,
+    AiDebugSanitizerService,
     AiContextBuilderService,
     AiProviderFactory,
     RecommendationGeneratorService,

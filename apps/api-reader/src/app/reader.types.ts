@@ -46,4 +46,5 @@ export type AiChatPayload = {
   dateRange?: { from?: string; to?: string };
   provider?: string;
   model?: string;
+  correlationId?: string;
 };
