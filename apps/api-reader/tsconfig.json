@@ -7,6 +7,9 @@
       "path": "../../libs/marketing-infrastructure"
     },
     {
+      "path": "../../libs/marketing-application"
+    },
+    {
       "path": "../../libs/core-application"
     },
     {

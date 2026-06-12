@@ -25,6 +25,9 @@
       "path": "../../libs/marketing-infrastructure/tsconfig.lib.json"
     },
     {
+      "path": "../../libs/marketing-application/tsconfig.lib.json"
+    },
+    {
       "path": "../../libs/core-application/tsconfig.lib.json"
     },
     {

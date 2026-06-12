@@ -66,8 +66,12 @@ export class AppsFlyerKpiCalculatorPlugin {
 
     for (const event of events) {
       if (event.eventDate) {
-        periodStart = periodStart === null || event.eventDate < periodStart ? event.eventDate : periodStart;
-        periodEnd = periodEnd === null || event.eventDate > periodEnd ? event.eventDate : periodEnd;
+        if (periodStart === null || event.eventDate < periodStart) {
+          periodStart = event.eventDate;
+        }
+        if (periodEnd === null || event.eventDate > periodEnd) {
+          periodEnd = event.eventDate;
+        }
       }
       this.increment(result.eventsByReportType, String(event.reportType));
       this.increment(result.eventsByEventName, event.eventName || 'unknown');
