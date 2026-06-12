@@ -23,7 +23,7 @@ export class ClaudeProvider extends BaseHttpAiProvider {
       'anthropic-version': '2023-06-01',
       'Content-Type': 'application/json',
     }, { model, system, messages, temperature: input.temperature ?? 0.2, max_tokens: input.maxTokens ?? 1200 });
-    if (status < 200 || status >= 300) throw new AiProviderError('AI_PROVIDER_REQUEST_FAILED', `Claude request failed with ${status}`, raw);
+    if (status < 200 || status >= 300) throw new AiProviderError('AI_PROVIDER_REQUEST_FAILED', `Claude request failed with ${status}`, raw, status);
     return { provider: this.name, model, content: raw.content?.map((part) => part.text ?? '').join('') ?? '', rawResponse: raw, usage: raw.usage, finishReason: raw.stop_reason };
   }
 }

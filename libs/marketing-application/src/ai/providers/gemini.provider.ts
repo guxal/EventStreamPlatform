@@ -20,7 +20,7 @@ export class GeminiProvider extends BaseHttpAiProvider {
       { 'Content-Type': 'application/json' },
       { contents, generationConfig: { temperature: input.temperature ?? 0.2, maxOutputTokens: input.maxTokens } },
     );
-    if (status < 200 || status >= 300) throw new AiProviderError('AI_PROVIDER_REQUEST_FAILED', `Gemini request failed with ${status}`, raw);
+    if (status < 200 || status >= 300) throw new AiProviderError('AI_PROVIDER_REQUEST_FAILED', `Gemini request failed with ${status}`, raw, status);
     return { provider: this.name, model, content: raw.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('') ?? '', rawResponse: raw, finishReason: raw.candidates?.[0]?.finishReason };
   }
 }

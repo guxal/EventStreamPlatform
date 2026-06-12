@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios';
+import axios, { AxiosError, type AxiosResponse } from 'axios';
 
 export async function postProviderJson<T>(
   url: string,
@@ -21,11 +21,12 @@ export async function postProviderJson<T>(
         return { status: response.status, data: response.data };
       }
       lastError = new Error(`Retryable AI provider status ${response.status}`);
+      await sleep(retryDelayMs(attempt, response));
     } catch (error) {
       lastError = error;
       if (!isRetryableError(error) || attempt === maxRetries) throw error;
+      await sleep(retryDelayMs(attempt, axios.isAxiosError(error) ? error.response : undefined));
     }
-    await sleep(backoffMs(attempt));
   }
 
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
@@ -41,8 +42,13 @@ function isRetryableError(error: unknown): boolean {
   return !axiosError.response || isRetryableStatus(axiosError.response.status);
 }
 
-function backoffMs(attempt: number): number {
-  return Math.min(250 * 2 ** attempt, 2_000);
+function retryDelayMs(attempt: number, response?: AxiosResponse): number {
+  const retryAfter = response?.headers?.['retry-after'];
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds) && seconds > 0) return seconds * 1000;
+  }
+  return Math.min(1_000 * 2 ** attempt, 10_000);
 }
 
 function sleep(ms: number): Promise<void> {

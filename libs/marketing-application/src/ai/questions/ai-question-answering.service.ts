@@ -2,9 +2,10 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import { AI_DEFENSIVE_SYSTEM_PROMPT } from '../ai-safety.constants';
 import { AiDebugLoggerService } from '../debug';
 import {
-  AiProviderError,
   AiProviderFactory,
   AiProviderName,
+  asAiProviderError,
+  isTransientAiProviderError,
 } from '../providers';
 import {
   AiQuestionDataService,
@@ -123,33 +124,39 @@ export class AiQuestionAnsweringService {
         generationStatus,
       };
     } catch (error) {
-      if (
-        error instanceof AiProviderError &&
-        process.env.AI_REQUIRED === 'true'
-      )
-        throw error;
-      this.log(input, intent, 'mock', 'SKIPPED', started, error);
-      const answer = this.fallbackAnswer(intent, data);
-      this.debugLogger.logAiSkipped(meta, {
-        reason: 'AI_CHAT_PROVIDER_FAILED',
-        errorMessage: error instanceof Error ? error.message : String(error),
-      });
-      this.debugLogger.logChatResponseSent(meta, {
-        provider: 'mock',
-        generationStatus: 'SKIPPED',
-        answerChars: answer.length,
-      });
-      return {
-        correlationId,
-        answer,
-        intent,
-        source: input.source,
-        usedData,
-        limitations: this.limitations(data),
-        provider: 'mock',
-        model: 'deterministic-fallback',
-        generationStatus: 'SKIPPED',
-      };
+      const providerError = asAiProviderError(error);
+      if (providerError) {
+        const transient = isTransientAiProviderError(providerError);
+        if (!transient && process.env.AI_REQUIRED === 'true') throw providerError;
+        this.log(input, intent, 'mock', 'SKIPPED', started, providerError);
+        const answer = this.fallbackAnswer(intent, data);
+        this.debugLogger.logAiSkipped(meta, {
+          reason: 'AI_CHAT_PROVIDER_FAILED',
+          errorMessage: providerError.message,
+        });
+        this.debugLogger.logChatResponseSent(meta, {
+          provider: 'mock',
+          generationStatus: 'SKIPPED',
+          answerChars: answer.length,
+        });
+        return {
+          correlationId,
+          answer,
+          intent,
+          source: input.source,
+          usedData,
+          limitations: this.limitations(data),
+          provider: 'mock',
+          model: 'deterministic-fallback',
+          generationStatus: 'SKIPPED',
+          providerError: {
+            code: providerError.code,
+            message: providerError.message,
+            httpStatus: providerError.httpStatus,
+          },
+        };
+      }
+      throw error;
     }
   }
 

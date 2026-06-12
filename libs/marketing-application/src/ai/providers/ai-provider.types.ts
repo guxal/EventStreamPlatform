@@ -72,7 +72,24 @@ export class AiProviderError extends Error {
       | 'AI_SCHEMA_VALIDATION_FAILED',
     message: string,
     public override readonly cause?: unknown,
+    public readonly httpStatus?: number,
   ) {
     super(message);
   }
+}
+
+export function isTransientAiProviderHttpStatus(status?: number): boolean {
+  return status === 408 || status === 429 || (status !== undefined && status >= 500);
+}
+
+export function isTransientAiProviderError(error: AiProviderError): boolean {
+  return error.code === 'AI_PROVIDER_REQUEST_FAILED' && isTransientAiProviderHttpStatus(error.httpStatus);
+}
+
+export function asAiProviderError(error: unknown): AiProviderError | null {
+  if (error instanceof AiProviderError) return error;
+  if (!(error instanceof Error) || !('code' in error)) return null;
+  const candidate = error as AiProviderError;
+  if (typeof candidate.code !== 'string') return null;
+  return candidate;
 }

@@ -37,12 +37,20 @@ describe('AiQuestionAnsweringService', () => {
     expect(answer.answer).not.toContain('ROAS is');
   });
 
-  it('says denominator data is required before funnel-rate calculations', async () => {
+  it('falls back on OpenAI rate limits even when AI_REQUIRED=true', async () => {
+    process.env.AI_REQUIRED = 'true';
     const service = new AiQuestionAnsweringService(new AiQuestionIntentRouter(), dataService({
-      getTopFacts: jest.fn().mockResolvedValue([{ factType: 'LOW_INSTALL_TO_DEPOSIT' }]),
-    }) as any, { getProvider: () => { throw new AiProviderError('AI_PROVIDER_NOT_CONFIGURED', 'missing'); } } as any);
-    const answer = await service.answer({ projectId: 'project-1', source: 'appsflyer', question: 'Why are deposits low?' });
-    expect(answer.answer).toContain('LOW_INSTALL_TO_DEPOSIT');
-    expect(answer.answer).toContain('numerator and denominator');
+      getTopFacts: jest.fn().mockResolvedValue([{ factType: 'LOW_CTR', severity: 'WARNING' }]),
+    }) as any, {
+      getProvider: () => ({
+        name: 'OPENAI',
+        generateText: async () => { throw new AiProviderError('AI_PROVIDER_REQUEST_FAILED', 'OpenAI request failed with 429', undefined, 429); },
+      }),
+    } as any);
+    const answer = await service.answer({ projectId: 'project-1', source: 'appsflyer', question: 'What are the top problems?' });
+    expect(answer.generationStatus).toBe('SKIPPED');
+    expect(answer.providerError?.httpStatus).toBe(429);
+    expect(answer.answer).toContain('LOW_CTR');
+    delete process.env.AI_REQUIRED;
   });
 });
