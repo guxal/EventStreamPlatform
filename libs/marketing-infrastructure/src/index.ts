@@ -20,3 +20,5 @@ export * from './repositories/reader/reports-reader.repository';
 export * from './repositories/semantic/semantic-entity.repository';
 export * from './repositories/semantic/semantic-relationship.repository';
 export * from './repositories/semantic/context-object.repository';
+
+export * from './repositories/ai/ai-debug-trace.repository';

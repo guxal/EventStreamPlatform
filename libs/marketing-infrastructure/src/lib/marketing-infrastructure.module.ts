@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AnalysisRunRepository } from '../repositories/ai/analysis-run.repository';
 import { AiReportRepository } from '../repositories/ai/ai-report.repository';
+import { AiDebugTraceRepository } from '../repositories/ai/ai-debug-trace.repository';
 import { RecommendationRepository } from '../repositories/ai/recommendation.repository';
 import { AppsFlyerEventsRepository } from '../repositories/appsflyer/appsflyer-events.repository';
 import { AppsFlyerSnapshotsRepository } from '../repositories/appsflyer/appsflyer-snapshots.repository';
@@ -22,6 +23,7 @@ import { ObjectStorageService } from '../storage/object-storage.service';
 
 const repositories = [
   AnalysisRunRepository,
+  AiDebugTraceRepository,
   RecommendationRepository,
   AiReportRepository,
   AppsFlyerEventsRepository,

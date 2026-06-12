@@ -1,12 +1,27 @@
-import { AiProviderName, type AiGenerateJsonInput, type AiGenerateJsonResult, type AiGenerateTextInput, type AiGenerateTextResult, type AiProvider } from './ai-provider.types';
+import { AiDebugLoggerService } from '../debug';
+import {
+  AiProviderName,
+  type AiGenerateJsonInput,
+  type AiGenerateJsonResult,
+  type AiGenerateTextInput,
+  type AiGenerateTextResult,
+  type AiProvider,
+} from './ai-provider.types';
 
 export class MockAiProvider implements AiProvider {
+  constructor(
+    private readonly debugLogger: AiDebugLoggerService = new AiDebugLoggerService(),
+  ) {}
   readonly name = AiProviderName.MOCK;
   private readonly model = process.env.AI_MODEL || 'mock-marketing-model-v1';
 
-  isConfigured(): boolean { return true; }
+  isConfigured(): boolean {
+    return true;
+  }
 
-  async generateText(input: AiGenerateTextInput): Promise<AiGenerateTextResult> {
+  async generateText(
+    input: AiGenerateTextInput,
+  ): Promise<AiGenerateTextResult> {
     const facts = this.factCount(input.metadata);
     return {
       provider: this.name,
@@ -16,8 +31,25 @@ export class MockAiProvider implements AiProvider {
     };
   }
 
-  async generateJson<T = unknown>(input: AiGenerateJsonInput): Promise<AiGenerateJsonResult<T>> {
+  async generateJson<T = unknown>(
+    input: AiGenerateJsonInput,
+  ): Promise<AiGenerateJsonResult<T>> {
+    const meta = {
+      ...(input.metadata ?? {}),
+      aiFlow: (input.metadata as any)?.aiFlow ?? 'recommendation',
+      promptType: (input.metadata as any)?.promptType ?? 'RECOMMENDATION',
+      model: input.model || this.model,
+    };
+    this.debugLogger.logResponseParsingStarted(meta as any, input.schemaName);
     const data = this.buildSchemaData(input.schemaName, input.metadata) as T;
+    this.debugLogger.logResponseParsed(meta as any, {
+      outputType: input.schemaName,
+      itemsCount: Array.isArray((data as any)?.recommendations)
+        ? (data as any).recommendations.length
+        : undefined,
+      valid: true,
+      parsedOutput: data,
+    });
     return {
       provider: this.name,
       model: input.model || this.model,
@@ -26,20 +58,35 @@ export class MockAiProvider implements AiProvider {
     };
   }
 
-  private buildSchemaData(schemaName: string | undefined, metadata: Record<string, unknown> | undefined): unknown {
+  private buildSchemaData(
+    schemaName: string | undefined,
+    metadata: Record<string, unknown> | undefined,
+  ): unknown {
     if (schemaName === 'marketing_recommendations') {
-      const facts = Array.isArray(metadata?.facts) ? metadata.facts as Array<Record<string, unknown>> : [];
+      const facts = Array.isArray(metadata?.facts)
+        ? (metadata.facts as Array<Record<string, unknown>>)
+        : [];
       return {
         recommendations: facts.map((fact, index) => ({
           title: `Mock recommendation for ${String(fact.factType ?? 'detected fact')}`,
-          summary: String(fact.recommendationHint ?? 'Review this detected fact before taking action.'),
+          summary: String(
+            fact.recommendationHint ??
+              'Review this detected fact before taking action.',
+          ),
           priority: this.priorityFromSeverity(String(fact.severity ?? 'INFO')),
           relatedFactIds: [String(fact.id ?? fact.factType ?? `fact_${index}`)],
           relatedEntityIds: fact.entityId ? [String(fact.entityId)] : [],
           source: fact.source,
           reportType: fact.reportType,
-          recommendedActions: [String(fact.recommendationHint ?? 'Investigate the detected fact with the available structured data.')],
-          limitations: ['Mock provider used; verify with production AI provider before stakeholder delivery.'],
+          recommendedActions: [
+            String(
+              fact.recommendationHint ??
+                'Investigate the detected fact with the available structured data.',
+            ),
+          ],
+          limitations: [
+            'Mock provider used; verify with production AI provider before stakeholder delivery.',
+          ],
           confidence: Number(fact.confidence ?? 0.7),
         })),
       };
@@ -47,7 +94,9 @@ export class MockAiProvider implements AiProvider {
     return { ok: true, schemaName: schemaName ?? 'unknown' };
   }
 
-  private priorityFromSeverity(severity: string): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
+  private priorityFromSeverity(
+    severity: string,
+  ): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' {
     if (severity === 'CRITICAL') return 'CRITICAL';
     if (severity === 'WARNING') return 'HIGH';
     if (severity === 'INFO') return 'MEDIUM';

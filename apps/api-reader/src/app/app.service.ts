@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
-import { GetMetricQuery, ListMetricsQuery } from '@metrics-platform/core-application';
+import {
+  GetMetricQuery,
+  ListMetricsQuery,
+} from '@metrics-platform/core-application';
 import {
   AiReportRepository,
   AnalysisRunRepository,
@@ -14,9 +17,17 @@ import {
   SemanticRelationshipRepository,
   ContextObjectRepository,
 } from '@metrics-platform/marketing-infrastructure';
-import type { AiOutputListFilters, AppsFlyerEventFilters } from '@metrics-platform/marketing-infrastructure';
+import type {
+  AiOutputListFilters,
+  AppsFlyerEventFilters,
+} from '@metrics-platform/marketing-infrastructure';
 import { AiQuestionAnsweringService } from '@metrics-platform/marketing-application';
-import type { AiChatPayload, CampaignRow, DashboardSummary, KeywordRow } from './reader.types';
+import type {
+  AiChatPayload,
+  CampaignRow,
+  DashboardSummary,
+  KeywordRow,
+} from './reader.types';
 
 @Injectable()
 export class AppService {
@@ -36,15 +47,28 @@ export class AppService {
     private readonly aiQuestionAnsweringService: AiQuestionAnsweringService,
   ) {}
 
-  async handleGetMetric(metricName: string, period: string, store: 'db' | 'redis' = 'db') {
+  async handleGetMetric(
+    metricName: string,
+    period: string,
+    store: 'db' | 'redis' = 'db',
+  ) {
     return this.queryBus.execute(new GetMetricQuery(metricName, period, store));
   }
 
-  async handleListMetrics(metricName?: string, fromPeriod?: string, toPeriod?: string) {
-    return this.queryBus.execute(new ListMetricsQuery(metricName, fromPeriod, toPeriod));
+  async handleListMetrics(
+    metricName?: string,
+    fromPeriod?: string,
+    toPeriod?: string,
+  ) {
+    return this.queryBus.execute(
+      new ListMetricsQuery(metricName, fromPeriod, toPeriod),
+    );
   }
 
-  async getProjectDashboard(projectId: string, period = 'last_7_days'): Promise<DashboardSummary> {
+  async getProjectDashboard(
+    projectId: string,
+    period = 'last_7_days',
+  ): Promise<DashboardSummary> {
     const appsFlyer = await this.getAppsFlyerOverview(projectId);
     return {
       projectId,
@@ -53,7 +77,10 @@ export class AppService {
         impressions: 0,
         clicks: 0,
         cost: 0,
-        conversions: appsFlyer.registrations + appsFlyer.deposits + appsFlyer.firstDeposits,
+        conversions:
+          appsFlyer.registrations +
+          appsFlyer.deposits +
+          appsFlyer.firstDeposits,
         conversionValue: appsFlyer.depositAmount,
         ctr: 0,
         cpc: 0,
@@ -74,16 +101,26 @@ export class AppService {
   }
 
   async getOverview(projectId: string, filters: { source?: string } = {}) {
-    if (!filters.source || filters.source.toLowerCase() === 'appsflyer') return this.getAppsFlyerOverview(projectId);
-    return { projectId, source: filters.source, totalEvents: 0, warnings: ['No reader adapter is available for this source yet.'] };
+    if (!filters.source || filters.source.toLowerCase() === 'appsflyer')
+      return this.getAppsFlyerOverview(projectId);
+    return {
+      projectId,
+      source: filters.source,
+      totalEvents: 0,
+      warnings: ['No reader adapter is available for this source yet.'],
+    };
   }
 
   async getSourceMetrics(projectId: string, filters: { source?: string } = {}) {
     return this.getOverview(projectId, filters);
   }
 
-  async getEntitiesPerformance(projectId: string, filters: { source?: string } = {}) {
-    if (!filters.source || filters.source.toLowerCase() === 'appsflyer') return this.getAppsFlyerCampaigns(projectId);
+  async getEntitiesPerformance(
+    projectId: string,
+    filters: { source?: string } = {},
+  ) {
+    if (!filters.source || filters.source.toLowerCase() === 'appsflyer')
+      return this.getAppsFlyerCampaigns(projectId);
     return [];
   }
 
@@ -93,14 +130,23 @@ export class AppService {
 
   async getAppsFlyerImportSummary(projectId: string, importId: string) {
     const [summary, kpiSnapshot] = await Promise.all([
-      this.dataImportsReaderRepository.getAppsFlyerImportSummary(projectId, importId),
+      this.dataImportsReaderRepository.getAppsFlyerImportSummary(
+        projectId,
+        importId,
+      ),
       this.appsFlyerSnapshotsRepository.getLatestByImport(projectId, importId),
     ]);
-    if (!summary) throw new NotFoundException(`Import ${importId} not found for project ${projectId}`);
+    if (!summary)
+      throw new NotFoundException(
+        `Import ${importId} not found for project ${projectId}`,
+      );
     return { ...summary, kpiSnapshot };
   }
 
-  async getAppsFlyerEventsByName(projectId: string, filters: AppsFlyerEventFilters = {}) {
+  async getAppsFlyerEventsByName(
+    projectId: string,
+    filters: AppsFlyerEventFilters = {},
+  ) {
     return this.appsFlyerEventsRepository.getEventsByName(projectId, filters);
   }
 
@@ -116,77 +162,225 @@ export class AppService {
     return this.appsFlyerEventsRepository.getBlockedTraffic(projectId);
   }
 
-  async listProjectFacts(projectId: string, filters: { source?: string; reportType?: string; includeSemantic?: string } = {}) {
-    const facts = await this.detectedFactRepository.listByProject(projectId, filters);
+  async listProjectFacts(
+    projectId: string,
+    filters: {
+      source?: string;
+      reportType?: string;
+      includeSemantic?: string;
+    } = {},
+  ) {
+    const facts = await this.detectedFactRepository.listByProject(
+      projectId,
+      filters,
+    );
     if (filters.includeSemantic !== 'true') return facts;
-    return { data: facts, semantic: await this.getSemanticBundle(projectId, { source: filters.source, reportType: filters.reportType }) };
+    return {
+      data: facts,
+      semantic: await this.getSemanticBundle(projectId, {
+        source: filters.source,
+        reportType: filters.reportType,
+      }),
+    };
   }
 
-  async listProjectRecommendations(projectId: string, filters: AiOutputListFilters & { includeSemantic?: string } = {}) {
-    const recommendations = await this.recommendationRepository.listByProject(projectId, filters);
+  async listProjectRecommendations(
+    projectId: string,
+    filters: AiOutputListFilters & { includeSemantic?: string } = {},
+  ) {
+    const recommendations = await this.recommendationRepository.listByProject(
+      projectId,
+      filters,
+    );
     if (filters.includeSemantic !== 'true') return recommendations;
-    return { data: recommendations, semantic: await this.getSemanticBundle(projectId, { source: filters.source, reportType: filters.reportType }) };
+    return {
+      data: recommendations,
+      semantic: await this.getSemanticBundle(projectId, {
+        source: filters.source,
+        reportType: filters.reportType,
+      }),
+    };
   }
 
-  async listProjectReports(projectId: string, filters: AiOutputListFilters & { includeSemantic?: string } = {}) {
-    const reports = await this.aiReportRepository.listByProject(projectId, filters);
+  async listProjectReports(
+    projectId: string,
+    filters: AiOutputListFilters & { includeSemantic?: string } = {},
+  ) {
+    const reports = await this.aiReportRepository.listByProject(
+      projectId,
+      filters,
+    );
     if (filters.includeSemantic !== 'true') return reports;
-    return { data: reports, semantic: await this.getSemanticBundle(projectId, { source: filters.source, reportType: filters.reportType }) };
+    return {
+      data: reports,
+      semantic: await this.getSemanticBundle(projectId, {
+        source: filters.source,
+        reportType: filters.reportType,
+      }),
+    };
   }
 
-  async listSemanticEntities(projectId: string, filters: { source?: string; entityType?: string; canonicalName?: string; importId?: string; reportType?: string } = {}) {
+  async listSemanticEntities(
+    projectId: string,
+    filters: {
+      source?: string;
+      entityType?: string;
+      canonicalName?: string;
+      importId?: string;
+      reportType?: string;
+    } = {},
+  ) {
     return this.semanticEntityRepository.searchEntities(projectId, filters);
   }
 
-  async listSemanticRelationships(projectId: string, filters: { source?: string; relationshipType?: string; sourceEntityId?: string; targetEntityId?: string; importId?: string; reportType?: string } = {}) {
-    return this.semanticRelationshipRepository.searchRelationships(projectId, filters);
+  async listSemanticRelationships(
+    projectId: string,
+    filters: {
+      source?: string;
+      relationshipType?: string;
+      sourceEntityId?: string;
+      targetEntityId?: string;
+      importId?: string;
+      reportType?: string;
+    } = {},
+  ) {
+    return this.semanticRelationshipRepository.searchRelationships(
+      projectId,
+      filters,
+    );
   }
 
-  async listContextObjects(projectId: string, filters: { source?: string; contextType?: string; entityId?: string; reportType?: string; validAt?: string } = {}) {
-    return this.contextObjectRepository.searchContextObjects(projectId, filters);
+  async listContextObjects(
+    projectId: string,
+    filters: {
+      source?: string;
+      contextType?: string;
+      entityId?: string;
+      reportType?: string;
+      validAt?: string;
+    } = {},
+  ) {
+    return this.contextObjectRepository.searchContextObjects(
+      projectId,
+      filters,
+    );
   }
 
-  private async getSemanticBundle(projectId: string, filters: { source?: string; reportType?: string } = {}) {
+  private async getSemanticBundle(
+    projectId: string,
+    filters: { source?: string; reportType?: string } = {},
+  ) {
     const [entities, relationships, contextObjects] = await Promise.all([
       this.semanticEntityRepository.searchEntities(projectId, filters),
-      this.semanticRelationshipRepository.searchRelationships(projectId, filters),
+      this.semanticRelationshipRepository.searchRelationships(
+        projectId,
+        filters,
+      ),
       this.contextObjectRepository.searchContextObjects(projectId, filters),
     ]);
     return { entities, relationships, contextObjects };
   }
 
   async listProjectProcesses(projectId: string, limit?: string) {
-    return this.processAuditRepository.listRunsByProject(projectId, limit ? Number(limit) : 50);
+    return this.processAuditRepository.listRunsByProject(
+      projectId,
+      limit ? Number(limit) : 50,
+    );
   }
 
   async getProjectProcess(projectId: string, runId: string) {
-    const run = await this.processAuditRepository.getRunWithSteps(projectId, runId);
-    if (!run) throw new NotFoundException(`Process run ${runId} not found for project ${projectId}`);
+    const run = await this.processAuditRepository.getRunWithSteps(
+      projectId,
+      runId,
+    );
+    if (!run)
+      throw new NotFoundException(
+        `Process run ${runId} not found for project ${projectId}`,
+      );
     return run;
   }
 
   async getImportFlow(projectId: string, importId: string) {
-    const run = await this.processAuditRepository.getLatestRunByImport(projectId, importId);
-    if (!run) throw new NotFoundException(`No process run found for import ${importId}`);
+    const run = await this.processAuditRepository.getLatestRunByImport(
+      projectId,
+      importId,
+    );
+    if (!run)
+      throw new NotFoundException(
+        `No process run found for import ${importId}`,
+      );
     return run;
   }
 
-  async listAnalysisRuns(projectId: string, filters: { source?: string; reportType?: string; importId?: string; status?: string; analysisType?: string; from?: string; to?: string } = {}) {
+  async listAnalysisRuns(
+    projectId: string,
+    filters: {
+      source?: string;
+      reportType?: string;
+      importId?: string;
+      status?: string;
+      analysisType?: string;
+      from?: string;
+      to?: string;
+    } = {},
+  ) {
     return this.analysisRunRepository.findByProject(projectId, filters);
   }
 
   async getAnalysisRun(projectId: string, analysisRunId: string) {
-    const run = await this.analysisRunRepository.findById(projectId, analysisRunId);
-    if (!run) throw new NotFoundException(`Analysis run ${analysisRunId} not found for project ${projectId}`);
+    const run = await this.analysisRunRepository.findById(
+      projectId,
+      analysisRunId,
+    );
+    if (!run)
+      throw new NotFoundException(
+        `Analysis run ${analysisRunId} not found for project ${projectId}`,
+      );
     return run;
   }
 
-  async askQuestion(projectId: string, payload: { question?: string; query?: string; source?: string; reportType?: string; importId?: string; dateRange?: { from?: string; to?: string }; provider?: string; model?: string }) {
-    return this.aiQuestionAnsweringService.answer({ projectId, question: payload.question ?? payload.query ?? '', source: payload.source, reportType: payload.reportType, importId: payload.importId, dateRange: payload.dateRange, provider: payload.provider, model: payload.model });
+  async askQuestion(
+    projectId: string,
+    payload: {
+      question?: string;
+      query?: string;
+      source?: string;
+      reportType?: string;
+      importId?: string;
+      dateRange?: { from?: string; to?: string };
+      provider?: string;
+      model?: string;
+      correlationId?: string;
+    },
+  ) {
+    return this.aiQuestionAnsweringService.answer({
+      projectId,
+      question: payload.question ?? payload.query ?? '',
+      source: payload.source,
+      reportType: payload.reportType,
+      importId: payload.importId,
+      dateRange: payload.dateRange,
+      provider: payload.provider,
+      model: payload.model,
+      correlationId: payload.correlationId,
+    });
   }
 
   async askAiChat(projectId: string, payload: AiChatPayload) {
-    const result = await this.askQuestion(projectId, { question: payload.question ?? payload.query, source: payload.source, reportType: payload.reportType, importId: payload.importId, dateRange: payload.dateRange });
-    return { ...result, query: payload.query ?? payload.question, response: result.answer };
+    const result = await this.askQuestion(projectId, {
+      question: payload.question ?? payload.query,
+      source: payload.source,
+      reportType: payload.reportType,
+      importId: payload.importId,
+      dateRange: payload.dateRange,
+      provider: payload.provider,
+      model: payload.model,
+      correlationId: payload.correlationId,
+    });
+    return {
+      ...result,
+      query: payload.query ?? payload.question,
+      response: result.answer,
+    };
   }
 }

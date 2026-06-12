@@ -15,3 +15,5 @@ export * from './semantic';
 
 export * from './ai/analysis';
 export * from './ai/questions';
+
+export * from './ai/debug';
