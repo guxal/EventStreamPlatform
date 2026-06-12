@@ -327,6 +327,10 @@ User Query → Intent Classifier → Controlled Function → JSON Result → Fin
 - AI outputs must be generated only from detected facts plus bounded KPI/semantic/context extras.
 - Provider abstractions exist for mock, OpenAI, Claude, and Gemini; do not instantiate providers directly in feature code when the factory/orchestrator is available.
 - Store provider/model/prompt metadata with AI outputs for traceability.
+- AI context builder redacts raw/CSV/payload/device/user fields and bounds facts, semantic data, relationships, and context objects before provider calls.
+- OpenAI calls use bounded timeout/retry settings (`AI_TIMEOUT_MS`, `AI_MAX_RETRIES`, `AI_MAX_TOKENS`) and must not log secrets.
+- Import-scoped AI outputs are replace-by-scope (`project_id + import_id + source + report_type`) before regeneration to avoid duplicate recommendations/reports.
+- AppsFlyer fact persistence also replaces facts for the same import/source/report/raw-file scope before saving regenerated facts.
 - Continue preserving insufficient-data behavior when facts are empty or when required metrics are unavailable.
 
 ## V1 First Milestone (Next Execution Target)

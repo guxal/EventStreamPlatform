@@ -2,6 +2,7 @@ import { EntityType, FactType, Severity } from '@metrics-platform/marketing-shar
 import { AiContextBuilderService } from './context';
 import { MockAiProvider } from './providers';
 import { ReportGeneratorService } from './report-generator.service';
+import { AI_DEFENSIVE_SYSTEM_PROMPT } from './ai-safety.constants';
 
 describe('ReportGeneratorService', () => {
   it('states unavailable metrics clearly', async () => {
@@ -12,4 +13,11 @@ describe('ReportGeneratorService', () => {
     const report = await new ReportGeneratorService().generateMarkdownReportFromContext(context, new MockAiProvider());
     expect(report.content).toContain('ROAS');
   });
+});
+
+
+it('defensive system prompt forbids unsupported ROAS and raw CSV analysis', () => {
+  expect(AI_DEFENSIVE_SYSTEM_PROMPT).toContain('Never read');
+  expect(AI_DEFENSIVE_SYSTEM_PROMPT).toContain('ROAS');
+  expect(AI_DEFENSIVE_SYSTEM_PROMPT).toContain('EVENT_AMOUNT_IN_JSON');
 });

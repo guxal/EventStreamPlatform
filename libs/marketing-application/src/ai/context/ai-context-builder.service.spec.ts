@@ -14,10 +14,12 @@ describe('AiContextBuilderService', () => {
         severity: Severity.INFO,
         confidence: 0.99,
         temporalContext: { lookbackDays: 0, startDate: '2026-06-01', endDate: '2026-06-01' },
-        metricsSummary: { source: 'APPSFLYER', reportType: 'installs', rawCsv: 'SHOULD_NOT_BE_INCLUDED' },
+        metricsSummary: { source: 'APPSFLYER', reportType: 'installs', rawCsv: 'SHOULD_NOT_BE_INCLUDED', deviceId: 'device-1', eventPayload: { csvRow: 'raw row' } },
       }],
     });
-    expect(JSON.stringify(context)).not.toContain('raw CSV');
+    expect(JSON.stringify(context)).not.toContain('SHOULD_NOT_BE_INCLUDED');
+    expect(JSON.stringify(context)).not.toContain('device-1');
+    expect(JSON.stringify(context)).not.toContain('raw row');
     expect(context.facts).toHaveLength(1);
     expect(context.unavailableMetrics.some((metric) => metric.metric === 'roas')).toBe(true);
   });

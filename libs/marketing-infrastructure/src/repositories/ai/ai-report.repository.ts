@@ -44,6 +44,19 @@ export class AiReportRepository {
     return item;
   }
 
+
+  async deleteByScope(projectId: string, filters: AiOutputListFilters = {}): Promise<number> {
+    const clauses = ['project_id = $1'];
+    const params: unknown[] = [projectId];
+    this.addFilter(clauses, params, 'LOWER(COALESCE(source, metadata->>\'source\', \'\'))', filters.source?.toLowerCase());
+    this.addFilter(clauses, params, 'COALESCE(source_report_type, metadata->>\'reportType\')', filters.reportType);
+    this.addFilter(clauses, params, 'COALESCE(import_id::text, metadata->>\'importId\', metadata->>\'dataImportIds\')', filters.importId);
+    this.addFilter(clauses, params, 'analysis_run_id::text', filters.analysisRunId);
+    if (params.length === 1) return 0;
+    const rows = await this.dataSource.query(`DELETE FROM ai_reports WHERE ${clauses.join(' AND ')} RETURNING id`, params);
+    return unwrapQueryRows<Record<string, any>>(rows).length;
+  }
+
   async listByProject(projectId: string, filters: AiOutputListFilters = {}): Promise<AiReportRecord[]> {
     const clauses = ['project_id = $1'];
     const params: unknown[] = [projectId];
