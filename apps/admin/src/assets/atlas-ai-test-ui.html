@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Atlas AI / AI Marketing Copilot — Test UI</title>
   <style>
-    :root { color-scheme: dark; --bg:#0b1020; --panel:#121a2f; --muted:#8ea0c3; --text:#eef4ff; --line:#263654; --accent:#7dd3fc; --ok:#86efac; --warn:#facc15; --err:#fca5a5; }
+    :root { color-scheme: dark; --bg:#0b1020; --panel:#121a2f; --panel-2:#0f172a; --muted:#8ea0c3; --text:#eef4ff; --line:#263654; --accent:#7dd3fc; --ok:#86efac; --warn:#facc15; --err:#fca5a5; --info:#a5b4fc; }
     * { box-sizing: border-box; }
     body { margin:0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; background:linear-gradient(135deg,#08111f,#10172a 55%,#111827); color:var(--text); }
     header { padding:24px; border-bottom:1px solid var(--line); background:rgba(11,16,32,.86); position:sticky; top:0; z-index:10; backdrop-filter:blur(8px); }
@@ -22,12 +22,35 @@
     button.secondary { background:#1f2937; border-color:#334155; }
     button.danger { background:#7f1d1d; border-color:#991b1b; }
     button:hover { filter:brightness(1.13); }
+    button.small { width:auto; padding:7px 9px; margin:0; font-size:12px; }
+    button:disabled { cursor:not-allowed; opacity:.52; filter:none; }
     .grid { display:grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap:12px; }
     .row { display:flex; gap:10px; align-items:center; }
     .row > * { flex:1; }
     .stack { display:grid; gap:16px; }
     .muted { color:var(--muted); font-size:12px; }
     .pill { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; border:1px solid var(--line); color:var(--muted); font-size:12px; margin:2px 4px 2px 0; }
+    .toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:10px 0 14px; }
+    .toolbar button { width:auto; margin:0; }
+    .metric-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+    .metric-card { background:linear-gradient(180deg,rgba(125,211,252,.12),rgba(15,23,42,.96)); border:1px solid var(--line); border-radius:14px; padding:14px; min-height:94px; }
+    .metric-card strong { display:block; font-size:24px; margin-top:8px; letter-spacing:-.02em; }
+    .metric-card span { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.08em; }
+    .file-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px; }
+    .file-card { background:var(--panel-2); border:1px solid var(--line); border-radius:14px; padding:14px; display:grid; gap:10px; }
+    .file-card.active { outline:2px solid var(--accent); }
+    .file-title { font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .file-meta { display:grid; grid-template-columns:1fr 1fr; gap:6px; color:var(--muted); font-size:12px; }
+    .file-actions { display:flex; flex-wrap:wrap; gap:8px; }
+    .empty-state { border:1px dashed var(--line); border-radius:14px; color:var(--muted); padding:18px; text-align:center; }
+    .status-UPLOADED,.status-PROFILING,.status-PROFILED { color:var(--info); border-color:rgba(165,180,252,.55); }
+    .status-READY_TO_PROCESS,.status-COMPLETED { color:var(--ok); border-color:rgba(134,239,172,.55); }
+    .status-NEEDS_REVIEW,.status-PROCESSING { color:var(--warn); border-color:rgba(250,204,21,.55); }
+    .status-FAILED { color:var(--err); border-color:rgba(252,165,165,.55); }
+    .fact-list { display:grid; gap:10px; }
+    .fact-card { border:1px solid var(--line); border-radius:12px; padding:12px; background:#081120; }
+    .fact-card strong { display:block; margin-bottom:6px; }
+    .section-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
     .ok { color:var(--ok); } .warn { color:var(--warn); } .err { color:var(--err); }
     pre { white-space:pre-wrap; word-break:break-word; background:#050914; border:1px solid var(--line); border-radius:12px; padding:12px; max-height:360px; overflow:auto; }
     .result { min-height:120px; }
@@ -36,7 +59,9 @@
     .tabs button.active { background:#0e7490; border-color:#22d3ee; }
     .hidden { display:none; }
     .copy { width:auto; padding:6px 10px; margin:0; float:right; }
+    @media (max-width: 1100px) { .metric-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media (max-width: 960px) { main { grid-template-columns:1fr; } header { position:static; } }
+    @media (max-width: 560px) { .grid,.metric-grid { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
@@ -81,22 +106,59 @@
         <label>CSV</label><input id="csvFile" type="file" accept=".csv,text/csv" />
         <label>Tags JSON opcional</label><textarea id="fileTags" placeholder='{"source":"appsflyer"}'></textarea>
         <button onclick="uploadFile()">Upload + profile</button>
-        <button class="secondary" onclick="listFiles()">Listar files</button>
+        <button class="secondary" onclick="listFiles()">Actualizar cards</button>
         <button onclick="processFile()">Procesar rawFileId</button>
+        <button class="secondary" onclick="reprocessFile()">Reprocesar rawFileId</button>
         <button class="secondary" onclick="getFileDetail()">Ver rawFileId</button>
       </section>
     </aside>
 
     <section>
       <div class="tabs">
-        <button class="active" onclick="showTab('reader', this)">Reader</button>
+        <button class="active" onclick="showTab('dashboard', this); refreshDashboard()">Dashboard</button>
+        <button onclick="showTab('files', this); listFiles()">File Hub</button>
+        <button onclick="showTab('reader', this)">Reader</button>
         <button onclick="showTab('analysis', this)">AI analysis_runs</button>
         <button onclick="showTab('monitoring', this)">Monitoreo jobs</button>
         <button onclick="showTab('questions', this)">Preguntas</button>
         <button onclick="showTab('raw', this)">Respuesta raw</button>
       </div>
 
-      <div id="tab-reader" class="stack">
+      <div id="tab-dashboard" class="stack">
+        <div class="card">
+          <div class="section-head">
+            <div>
+              <h2>Dashboard overview</h2>
+              <p>Resumen básico del proyecto usando overview, archivos, KPIs disponibles y facts detectados.</p>
+            </div>
+            <button class="small secondary" onclick="refreshDashboard()">Refrescar</button>
+          </div>
+          <div id="dashboardSummary" class="metric-grid"></div>
+          <h3>KPIs / métricas disponibles</h3>
+          <div id="kpiCards" class="metric-grid"></div>
+          <h3>Facts recientes</h3>
+          <div id="factsPreview" class="fact-list"></div>
+        </div>
+      </div>
+
+      <div id="tab-files" class="stack hidden">
+        <div class="card">
+          <div class="section-head">
+            <div>
+              <h2>File Hub — archivos subidos</h2>
+              <p>Cards con estado, source/report type, acciones de procesar y reprocesar.</p>
+            </div>
+            <button class="small secondary" onclick="listFiles()">Refrescar listado</button>
+          </div>
+          <div class="grid">
+            <div><label>Status filter</label><select id="fileStatusFilter"><option value="">Todos</option><option>UPLOADED</option><option>PROFILING</option><option>PROFILED</option><option>READY_TO_PROCESS</option><option>NEEDS_REVIEW</option><option>PROCESSING</option><option>COMPLETED</option><option>FAILED</option></select></div>
+            <div><label>Acción rápida</label><button class="secondary" onclick="listFiles()">Aplicar filtros</button></div>
+          </div>
+          <div id="fileCards" class="file-grid"></div>
+        </div>
+      </div>
+
+      <div id="tab-reader" class="stack hidden">
         <div class="card">
           <h2>Datos procesados</h2>
           <div class="grid">
@@ -238,8 +300,13 @@
         .replaceAll('{rawFileId}', encodeURIComponent(c.rawFileId))
         .replaceAll('{analysisRunId}', encodeURIComponent(c.analysisRunId))
         .replaceAll('{processRunId}', encodeURIComponent(c.processRunId));
-      out = out.replace(/[?&][^=]+=(&|$)/g, (m) => m.endsWith('&') ? '&' : '').replace(/[?&]$/, '');
-      return out;
+      const [pathname, query] = out.split('?');
+      if (!query) return pathname;
+      const cleanQuery = query
+        .split('&')
+        .filter((param) => param && !param.endsWith('=') && !param.endsWith('=undefined') && !param.endsWith('=null'))
+        .join('&');
+      return cleanQuery ? `${pathname}?${cleanQuery}` : pathname;
     }
     function base(kind) { return (kind === 'writer' ? $('writerBase').value : $('readerBase').value).replace(/\/$/, ''); }
     function requiredProject() { if (!$('projectId').value.trim()) throw new Error('Configura projectId primero.'); }
@@ -276,6 +343,135 @@
       }
     }
     function jsonOptions(body) { return { method:'POST', headers:{ 'content-type':'application/json' }, body: JSON.stringify(body) }; }
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[char]));
+    }
+    function asArray(body, keys = ['data','files','items','results']) {
+      if (Array.isArray(body)) return body;
+      if (!body || typeof body !== 'object') return [];
+      for (const key of keys) if (Array.isArray(body[key])) return body[key];
+      return [];
+    }
+    function formatNumber(value, fallback = '0') {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return fallback;
+      return new Intl.NumberFormat('en-US', { maximumFractionDigits: n >= 100 ? 0 : 2 }).format(n);
+    }
+    function formatBytes(value) {
+      const bytes = Number(value || 0);
+      if (!Number.isFinite(bytes) || bytes <= 0) return 'n/a';
+      const units = ['B','KB','MB','GB'];
+      const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+      return `${formatNumber(bytes / Math.pow(1024, index))} ${units[index]}`;
+    }
+    function fileName(file) { return file.originalFileName || file.original_file_name || file.fileName || file.file_name || file.name || file.id || 'archivo'; }
+    function fileStatus(file) { return file.status || file.rawFileStatus || file.raw_file_status || 'UNKNOWN'; }
+    function fileSource(file) { return file.source || file.tags?.source || file.classification?.source || 'unknown'; }
+    function fileReportType(file) { return file.reportType || file.report_type || file.tags?.report_type || file.tags?.reportType || file.classification?.reportType || 'unknown'; }
+    function fileImportId(file) { return file.dataImportId || file.data_import_id || file.importId || file.import_id || ''; }
+    function metricCard(label, value, hint = '') {
+      return `<div class="metric-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${hint ? `<p>${escapeHtml(hint)}</p>` : ''}</div>`;
+    }
+    function renderFileCards(files) {
+      const container = $('fileCards');
+      if (!container) return;
+      if (!files.length) {
+        container.innerHTML = '<div class="empty-state">No hay archivos para los filtros actuales. Sube un CSV o cambia los filtros.</div>';
+        return;
+      }
+      const selected = $('rawFileId').value.trim();
+      container.innerHTML = files.map((file) => {
+        const id = file.id || file.rawFileId || file.raw_file_id || '';
+        const status = fileStatus(file);
+        const importId = fileImportId(file);
+        const source = String(fileSource(file)).toLowerCase();
+        const reportType = fileReportType(file);
+        const createdAt = file.createdAt || file.created_at || file.uploadedAt || file.uploaded_at || '';
+        const size = file.sizeBytes || file.size_bytes || file.fileSizeBytes || file.file_size_bytes;
+        const processDisabled = status !== 'READY_TO_PROCESS' ? 'disabled title="Solo READY_TO_PROCESS se puede procesar"' : '';
+        const reprocessDisabled = ['UPLOADED','PROFILING','PROFILED','NEEDS_REVIEW'].includes(status) ? 'disabled title="Reprocesa cuando ya existe/stuck/falló/completó un proceso"' : '';
+        return `<article class="file-card ${selected === id ? 'active' : ''}">
+          <div class="file-title" title="${escapeHtml(fileName(file))}">${escapeHtml(fileName(file))}</div>
+          <div><span class="pill status-${escapeHtml(status)}">${escapeHtml(status)}</span><span class="pill">${escapeHtml(source)}</span><span class="pill">${escapeHtml(reportType)}</span></div>
+          <div class="file-meta">
+            <span>ID: ${escapeHtml(id.slice(0, 8) || 'n/a')}</span>
+            <span>Import: ${escapeHtml(importId ? importId.slice(0, 8) : 'n/a')}</span>
+            <span>Size: ${escapeHtml(formatBytes(size))}</span>
+            <span>Fecha: ${escapeHtml(createdAt ? new Date(createdAt).toLocaleString() : 'n/a')}</span>
+          </div>
+          ${file.errorMessage || file.error_message ? `<p class="err">${escapeHtml(file.errorMessage || file.error_message)}</p>` : ''}
+          <div class="file-actions">
+            <button class="small secondary" onclick="selectFile('${escapeHtml(id)}','${escapeHtml(source)}','${escapeHtml(reportType)}','${escapeHtml(importId)}')">Seleccionar</button>
+            <button class="small" ${processDisabled} onclick="processFileById('${escapeHtml(id)}')">Procesar</button>
+            <button class="small secondary" ${reprocessDisabled} onclick="reprocessFileById('${escapeHtml(id)}')">Reprocesar</button>
+            <button class="small secondary" onclick="getFileDetailById('${escapeHtml(id)}')">Detalle</button>
+          </div>
+        </article>`;
+      }).join('');
+    }
+    function selectFile(id, source, reportType, importId) {
+      if (id) $('rawFileId').value = id;
+      if (source && source !== 'unknown') $('source').value = source;
+      if (reportType && reportType !== 'unknown') $('reportType').value = reportType;
+      if (importId) $('importId').value = importId;
+      saveConfig();
+      listFiles();
+    }
+    async function refreshDashboard() {
+      try {
+        requiredProject();
+        const [overview, facts, recommendations, reports, files] = await Promise.all([
+          fetchJson('reader', '/projects/{projectId}/overview?source={source}'),
+          fetchJson('reader', '/projects/{projectId}/facts?source={source}&reportType={reportType}'),
+          fetchJson('reader', '/projects/{projectId}/recommendations?source={source}&reportType={reportType}&importId={importId}'),
+          fetchJson('reader', '/projects/{projectId}/reports?source={source}&reportType={reportType}&importId={importId}'),
+          fetchJson('writer', '/projects/{projectId}/files?source={source}&report_type={reportType}'),
+        ]);
+        renderDashboard({ overview, facts, recommendations, reports, files });
+        showOutput({ overview, facts, recommendations, reports, files });
+      } catch (e) { showError(e); }
+    }
+    function renderDashboard(result) {
+      const overview = result.overview.body || {};
+      const facts = asArray(result.facts.body);
+      const recommendations = asArray(result.recommendations.body);
+      const reports = asArray(result.reports.body);
+      const files = asArray(result.files.body);
+      const totals = overview.totals || overview;
+      const completedFiles = files.filter((file) => fileStatus(file) === 'COMPLETED').length;
+      const pendingFiles = files.filter((file) => ['READY_TO_PROCESS','NEEDS_REVIEW','FAILED','PROCESSING'].includes(fileStatus(file))).length;
+      $('dashboardSummary').innerHTML = [
+        metricCard('Archivos', files.length, `${completedFiles} completed · ${pendingFiles} pendientes`),
+        metricCard('Facts', facts.length, facts.length ? 'insights determinísticos' : 'sin facts todavía'),
+        metricCard('Recomendaciones', recommendations.length, 'AI outputs'),
+        metricCard('Reports', reports.length, 'reportes generados'),
+      ].join('');
+      const kpiEntries = [
+        ['Total events', totals.totalEvents], ['Installs', totals.installs], ['Registrations', totals.registrations], ['Deposits', totals.deposits],
+        ['First deposits', totals.firstDeposits], ['Deposit amount', totals.depositAmount], ['Conversions', totals.conversions], ['Conversion value', totals.conversionValue],
+        ['Blocked events', totals.blockedEvents], ['Warnings', (overview.warnings || []).length],
+      ].filter(([, value]) => value !== undefined && value !== null);
+      $('kpiCards').innerHTML = kpiEntries.length
+        ? kpiEntries.map(([label, value]) => metricCard(label, formatNumber(value))).join('')
+        : '<div class="empty-state">Aún no hay KPIs procesados. Procesa un archivo READY_TO_PROCESS.</div>';
+      const unavailable = overview.unavailableMetrics || totals.unavailableMetrics || [];
+      if (unavailable.length) $('kpiCards').innerHTML += metricCard('Unavailable', unavailable.length, unavailable.join(', '));
+      renderFactsPreview(facts);
+    }
+    function renderFactsPreview(facts) {
+      const container = $('factsPreview');
+      if (!facts.length) {
+        container.innerHTML = '<div class="empty-state">Sin facts detectados aún. Cuando termine el worker aparecerán aquí.</div>';
+        return;
+      }
+      container.innerHTML = facts.slice(0, 6).map((fact) => {
+        const type = fact.factType || fact.fact_type || 'FACT';
+        const severity = fact.severity || 'INFO';
+        const entity = [fact.entityType || fact.entity_type, fact.entityId || fact.entity_id].filter(Boolean).join(' · ');
+        const hint = fact.recommendationHint || fact.recommendation_hint || fact.description || '';
+        return `<div class="fact-card"><strong>${escapeHtml(type)} <span class="pill">${escapeHtml(severity)}</span></strong><p>${escapeHtml(entity || 'Proyecto')}</p>${hint ? `<p>${escapeHtml(hint)}</p>` : ''}</div>`;
+      }).join('');
+    }
 
     async function createProject() {
       try {
@@ -298,35 +494,59 @@
         if (body.rawFile?.reportType) $('reportType').value = body.rawFile.reportType;
         if (body.rawFile?.source) $('source').value = String(body.rawFile.source).toLowerCase();
         if (body.rawFile?.dataImportId) $('importId').value = body.rawFile.dataImportId;
+        await listFiles();
+        await refreshDashboard();
       } catch(e) { showError(e); }
     }
     async function listFiles() {
       try {
         requiredProject();
-        const body = await request('writer', '/projects/{projectId}/files?source={source}&report_type={reportType}', { method:'GET' });
-        const files = Array.isArray(body) ? body : body?.files || body?.data || [];
+        const status = $('fileStatusFilter')?.value || '';
+        const path = '/projects/{projectId}/files?source={source}&report_type={reportType}' + (status ? `&status=${encodeURIComponent(status)}` : '');
+        const body = await request('writer', path, { method:'GET' });
+        const files = asArray(body);
+        renderFileCards(files);
         const first = files[0];
         if (first?.id && !$('rawFileId').value.trim()) {
           $('rawFileId').value = first.id;
           if (first.reportType) $('reportType').value = first.reportType;
           if (first.source) $('source').value = String(first.source).toLowerCase();
-          if (first.dataImportId) $('importId').value = first.dataImportId;
+          if (fileImportId(first)) $('importId').value = fileImportId(first);
           saveConfig();
+          renderFileCards(files);
         }
       } catch(e) { showError(e); }
     }
     async function getFileDetail() { try { requiredProject(); requiredRawFileId(); await request('writer', '/projects/{projectId}/files/{rawFileId}', { method:'GET' }); } catch(e) { showError(e); } }
+    async function getFileDetailById(id) { $('rawFileId').value = id; saveConfig(); await getFileDetail(); }
     async function processFile() {
       try {
         requiredProject();
         requiredRawFileId();
         const body = await request('writer', '/projects/{projectId}/files/{rawFileId}/process', { method:'POST' });
-        if (body.dataImportId || body.importId) {
-          $('importId').value = body.dataImportId || body.importId;
+        if (body.dataImportId || body.importId || body.payload?.dataImportId) {
+          $('importId').value = body.dataImportId || body.importId || body.payload?.dataImportId;
           saveConfig();
         }
+        await listFiles();
+        await refreshDashboard();
       } catch(e) { showError(e); }
     }
+    async function processFileById(id) { $('rawFileId').value = id; saveConfig(); await processFile(); }
+    async function reprocessFile() {
+      try {
+        requiredProject();
+        requiredRawFileId();
+        const body = await request('writer', '/projects/{projectId}/files/{rawFileId}/reprocess', { method:'POST' });
+        if (body.dataImportId || body.importId || body.payload?.dataImportId) {
+          $('importId').value = body.dataImportId || body.importId || body.payload?.dataImportId;
+          saveConfig();
+        }
+        await listFiles();
+        await refreshDashboard();
+      } catch(e) { showError(e); }
+    }
+    async function reprocessFileById(id) { $('rawFileId').value = id; saveConfig(); await reprocessFile(); }
     async function getReader(path) { try { requiredProject(); await request('reader', path, { method:'GET' }); } catch(e) { showError(e); } }
     async function createAnalysisRun() {
       try {
@@ -428,6 +648,15 @@
     }
     async function copyOutput() { await navigator.clipboard.writeText($('outputMirror').textContent || $('output').textContent || ''); setStatus('Copiado al clipboard', 'ok'); }
     loadConfig();
+    $('dashboardSummary').innerHTML = [
+      metricCard('Archivos', '—', 'configura projectId'),
+      metricCard('Facts', '—', 'esperando datos'),
+      metricCard('Recomendaciones', '—', 'esperando análisis'),
+      metricCard('Reports', '—', 'esperando análisis'),
+    ].join('');
+    $('kpiCards').innerHTML = '<div class="empty-state">Configura un projectId y presiona Refrescar para cargar el overview.</div>';
+    renderFactsPreview([]);
+    renderFileCards([]);
   </script>
 </body>
 </html>
