@@ -243,6 +243,15 @@
     }
     function base(kind) { return (kind === 'writer' ? $('writerBase').value : $('readerBase').value).replace(/\/$/, ''); }
     function requiredProject() { if (!$('projectId').value.trim()) throw new Error('Configura projectId primero.'); }
+    function requiredRawFileId() {
+      if (!$('rawFileId').value.trim()) {
+        throw new Error('Configura rawFileId primero (sale del upload o de Listar files).');
+      }
+    }
+    function extractRawFileId(body) {
+      if (!body || typeof body !== 'object') return '';
+      return body.rawFile?.id || body.id || body.fileId || body.rawFileId || '';
+    }
     async function request(kind, path, options = {}) {
       const url = base(kind) + pathTemplate(path);
       setStatus('Request: ' + options.method + ' ' + url, 'warn');
@@ -284,14 +293,40 @@
         form.append('file', file);
         if ($('fileTags').value.trim()) form.append('tags', $('fileTags').value.trim());
         const body = await request('writer', '/projects/{projectId}/files', { method:'POST', body: form });
-        const rawFileId = body.id || body.fileId || body.rawFileId;
+        const rawFileId = extractRawFileId(body);
         if (rawFileId) { $('rawFileId').value = rawFileId; saveConfig(); }
-        if (body.dataImportId) $('importId').value = body.dataImportId;
+        if (body.rawFile?.reportType) $('reportType').value = body.rawFile.reportType;
+        if (body.rawFile?.source) $('source').value = String(body.rawFile.source).toLowerCase();
+        if (body.rawFile?.dataImportId) $('importId').value = body.rawFile.dataImportId;
       } catch(e) { showError(e); }
     }
-    async function listFiles() { try { requiredProject(); await request('writer', '/projects/{projectId}/files?source={source}&report_type={reportType}', { method:'GET' }); } catch(e) { showError(e); } }
-    async function getFileDetail() { try { requiredProject(); await request('writer', '/projects/{projectId}/files/{rawFileId}', { method:'GET' }); } catch(e) { showError(e); } }
-    async function processFile() { try { requiredProject(); const body = await request('writer', '/projects/{projectId}/files/{rawFileId}/process', { method:'POST' }); if (body.dataImportId || body.importId) { $('importId').value = body.dataImportId || body.importId; saveConfig(); } } catch(e) { showError(e); } }
+    async function listFiles() {
+      try {
+        requiredProject();
+        const body = await request('writer', '/projects/{projectId}/files?source={source}&report_type={reportType}', { method:'GET' });
+        const files = Array.isArray(body) ? body : body?.files || body?.data || [];
+        const first = files[0];
+        if (first?.id && !$('rawFileId').value.trim()) {
+          $('rawFileId').value = first.id;
+          if (first.reportType) $('reportType').value = first.reportType;
+          if (first.source) $('source').value = String(first.source).toLowerCase();
+          if (first.dataImportId) $('importId').value = first.dataImportId;
+          saveConfig();
+        }
+      } catch(e) { showError(e); }
+    }
+    async function getFileDetail() { try { requiredProject(); requiredRawFileId(); await request('writer', '/projects/{projectId}/files/{rawFileId}', { method:'GET' }); } catch(e) { showError(e); } }
+    async function processFile() {
+      try {
+        requiredProject();
+        requiredRawFileId();
+        const body = await request('writer', '/projects/{projectId}/files/{rawFileId}/process', { method:'POST' });
+        if (body.dataImportId || body.importId) {
+          $('importId').value = body.dataImportId || body.importId;
+          saveConfig();
+        }
+      } catch(e) { showError(e); }
+    }
     async function getReader(path) { try { requiredProject(); await request('reader', path, { method:'GET' }); } catch(e) { showError(e); } }
     async function createAnalysisRun() {
       try {
