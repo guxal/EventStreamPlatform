@@ -11,7 +11,7 @@ export class ReportGeneratorService {
       const result = await provider.generateText({
         messages: [
           { role: 'system', content: AI_DEFENSIVE_SYSTEM_PROMPT },
-          { role: 'user', content: `Write a markdown report using only this bounded AI context:\n${JSON.stringify(context)}` },
+          { role: 'user', content: `Write a markdown report using only this bounded AI context. Include these sections exactly: Executive summary, Data sources used, Available report types, Main KPIs, Detected issues, Recommendations, Limitations, Next actions. Explicitly state insufficient data and unavailable cost/ROAS metrics when present. Never include raw CSV.\n${JSON.stringify(context)}` },
         ],
         temperature: 0.2,
         metadata: { facts: context.facts, unavailableMetrics: context.unavailableMetrics },
@@ -24,15 +24,22 @@ export class ReportGeneratorService {
   }
 
   generateMarkdownReport(projectId: string, facts: DetectedFact[]): string {
+    const sources = Array.from(new Set(facts.map((fact) => String(fact.metricsSummary?.source ?? '').toLowerCase()).filter(Boolean)));
+    const reportTypes = Array.from(new Set(facts.map((fact) => String(fact.metricsSummary?.reportType ?? '')).filter(Boolean)));
+    const unavailableMetrics = facts.some((fact) => String(fact.factType) === 'NO_RELIABLE_COST_SOURCE')
+      ? [{ metric: 'roas/cpa/cac', reason: 'No reliable cost source was provided.' }]
+      : [];
     return this.generateDeterministicMarkdownReport({
       projectId,
-      sources: Array.from(new Set(facts.map((fact) => String(fact.metricsSummary?.source ?? '').toLowerCase()).filter(Boolean))),
-      reportTypes: Array.from(new Set(facts.map((fact) => String(fact.metricsSummary?.reportType ?? '')).filter(Boolean))),
+      project: { id: projectId },
+      scope: { source: sources[0], reportTypes },
+      dataAvailability: { hasReliableCost: unavailableMetrics.length === 0, hasAppsflyer: sources.includes('appsflyer') },
+      limitations: unavailableMetrics.map((metric) => `${metric.metric}: ${metric.reason}`),
+      sources,
+      reportTypes,
       facts: facts as AiMarketingContext['facts'],
       kpis: {},
-      unavailableMetrics: facts.some((fact) => fact.factType === 'NO_RELIABLE_COST_SOURCE')
-        ? [{ metric: 'roas/cpa/cac', reason: 'No reliable cost source was provided.' }]
-        : [],
+      unavailableMetrics,
       warnings: [],
       dataQualityNotes: [],
       semanticEntities: [],

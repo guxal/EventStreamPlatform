@@ -17,6 +17,10 @@ export type AiContextBuildFilters = {
 
 export type AiMarketingContext = {
   projectId: string;
+  project: { id: string; name?: string };
+  scope: { source?: string; reportTypes: string[]; dateRange?: { from?: string; to?: string }; importId?: string };
+  dataAvailability: Record<string, boolean>;
+  limitations: string[];
   sources: string[];
   reportTypes: string[];
   dateRange?: { from?: string; to?: string };

@@ -30,6 +30,19 @@ export class DetectedFactRepository {
     return facts;
   }
 
+
+  async deleteByScope(projectId: string, filters: { source?: string; reportType?: string; importId?: string; rawFileId?: string } = {}): Promise<number> {
+    const clauses = ['project_id = $1'];
+    const params: unknown[] = [projectId];
+    if (filters.source) { params.push(filters.source); clauses.push(`LOWER(metrics_summary->>'source') = LOWER($${params.length})`); }
+    if (filters.reportType) { params.push(filters.reportType); clauses.push(`metrics_summary->>'reportType' = $${params.length}`); }
+    if (filters.importId) { params.push(filters.importId); clauses.push(`COALESCE(metrics_summary->>'dataImportId', metrics_summary->>'importId') = $${params.length}`); }
+    if (filters.rawFileId) { params.push(filters.rawFileId); clauses.push(`metrics_summary->>'rawFileId' = $${params.length}`); }
+    if (params.length === 1) return 0;
+    const rows = await this.dataSource.query(`DELETE FROM detected_facts WHERE ${clauses.join(' AND ')} RETURNING id`, params);
+    return unwrapQueryRows<Record<string, any>>(rows).length;
+  }
+
   async linkFactsToSemanticEntity(input: LinkFactsToSemanticEntityInput): Promise<number> {
     const clauses = ['project_id = $1'];
     const params: unknown[] = [input.projectId];

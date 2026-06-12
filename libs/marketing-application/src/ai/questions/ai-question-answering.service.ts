@@ -18,7 +18,7 @@ export class AiQuestionAnsweringService {
     const usedData = this.usedData(data);
     try {
       const provider = this.providerFactory.getProvider(input.provider);
-      const result = await provider.generateText({ model: input.model, temperature: 0.1, maxTokens: 700, messages: [{ role: 'system', content: `${AI_DEFENSIVE_SYSTEM_PROMPT}\nAnswer questions only from the bounded JSON data. Do not ask for raw CSV, generate SQL, or claim unavailable cost metrics.` }, { role: 'user', content: JSON.stringify({ question: input.question, intent, filters: { source: input.source, reportType: input.reportType, importId: input.importId, dateRange: input.dateRange }, data }) }] });
+      const result = await provider.generateText({ model: input.model, temperature: 0.1, maxTokens: 700, messages: [{ role: 'system', content: `${AI_DEFENSIVE_SYSTEM_PROMPT}\nAnswer questions only from the bounded JSON data. Do not ask for raw CSV, generate SQL, or claim unavailable cost metrics. If the question asks for unsupported ROAS/profitability/cost metrics, refuse with the missing cost-source explanation. If Event Revenue is empty and EVENT_AMOUNT_IN_JSON is present, explain that monetary analysis uses Event Value.amount.` }, { role: 'user', content: JSON.stringify({ question: input.question, intent, filters: { source: input.source, reportType: input.reportType, importId: input.importId, dateRange: input.dateRange }, data }) }] });
       const providerName = provider.name === AiProviderName.MOCK ? 'mock' : provider.name.toLowerCase();
       const generationStatus = provider.name === AiProviderName.MOCK ? 'MOCKED' : 'COMPLETED';
       this.log(input, intent, providerName, generationStatus, started);
@@ -39,14 +39,16 @@ export class AiQuestionAnsweringService {
     if (intent === 'RECOMMENDATIONS') return { recommendations: await this.dataService.getRecommendations(input) };
     if (intent === 'REPORT_SUMMARY') return { reports: await this.dataService.getLatestReports(input) };
     if (intent === 'IMPORT_SUMMARY') return { importSummary: await this.dataService.getImportSummary(input), facts: await this.dataService.getTopFacts(input) };
-    if (intent === 'EVENT_PERFORMANCE') return { eventsByName: await this.dataService.getEventsByName(input) };
+    if (intent === 'EVENT_PERFORMANCE') return { eventsByName: await this.dataService.getEventsByName(input), facts: await this.dataService.getTopFacts(input), unavailableMetrics: await this.dataService.getUnavailableMetrics(input) };
     if (intent === 'SEMANTIC_CONTEXT') return { semanticEntities: await this.dataService.getSemanticEntities(input), semanticRelationships: await this.dataService.getSemanticRelationships(input), contextObjects: await this.dataService.getContextObjects(input) };
     return { overview: await this.dataService.getProjectOverview(input), facts: await this.dataService.getTopFacts(input), unavailableMetrics: await this.dataService.getUnavailableMetrics(input) };
   }
 
   private fallbackAnswer(intent: AiQuestionIntent, data: Record<string, unknown>): string {
-    if (intent === 'UNAVAILABLE_METRICS') return `ROAS, CPA, CAC, and other cost-based metrics are unavailable because the bounded processed data does not include a reliable cost source. AppsFlyer data can describe events/conversions, but it should not be used alone to claim profitability.`;
+    if (intent === 'UNAVAILABLE_METRICS') return `ROAS, CPA, CAC, profitability, and other cost-based metrics cannot be calculated with the current data because no reliable cost source is available. AppsFlyer event data can show event volume and monetary values from Event Value.amount, but ROAS requires cost data from Google Ads, Meta Ads, or another reliable cost source.`;
     const facts = Array.isArray((data as any).facts) ? (data as any).facts : [];
+    if (intent === 'EVENT_PERFORMANCE' && facts.some((fact: any) => fact.factType === 'EVENT_REVENUE_EMPTY')) return facts.some((fact: any) => fact.factType === 'EVENT_AMOUNT_IN_JSON') ? 'AppsFlyer Event Revenue is empty in the processed facts. Monetary analysis can use Event Value.amount because EVENT_AMOUNT_IN_JSON was detected, but this is not ROAS and does not include ad cost.' : 'AppsFlyer Event Revenue is empty in the processed facts, and no alternate Event Value.amount fact is available in the selected context. Monetary analysis is insufficient.';
+    if (intent === 'EVENT_PERFORMANCE' && facts.some((fact: any) => ['LOW_INSTALL_TO_DEPOSIT', 'LOW_INSTALL_TO_FTD', 'LOW_INSTALL_TO_REGISTER'].includes(fact.factType))) return `The selected processed data contains funnel-quality facts: ${facts.filter((fact: any) => ['LOW_INSTALL_TO_DEPOSIT', 'LOW_INSTALL_TO_FTD', 'LOW_INSTALL_TO_REGISTER'].includes(fact.factType)).map((fact: any) => fact.factType).join(', ')}. Do not calculate rates unless the numerator and denominator are explicitly present in KPIs/facts.`;
     if (intent === 'TOP_FACTS') return facts.length ? `The main detected facts are: ${facts.slice(0, 5).map((fact: any) => `${fact.factType} (${fact.severity})`).join(', ')}. Use these facts as guidance; no raw CSV was inspected.` : 'No detected facts were found for the selected processed data.';
     const recommendations = Array.isArray((data as any).recommendations) ? (data as any).recommendations : [];
     if (intent === 'RECOMMENDATIONS') return recommendations.length ? `Latest recommendations: ${recommendations.slice(0, 3).map((item: any) => item.title).join('; ')}.` : 'No recommendations are available for the selected processed data.';

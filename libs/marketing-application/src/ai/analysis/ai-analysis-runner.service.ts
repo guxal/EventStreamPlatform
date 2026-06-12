@@ -57,8 +57,14 @@ export class AiAnalysisRunnerService {
         report = { id: randomUUID(), projectId: payload.projectId, reportType: payload.analysisType === 'PROJECT_SUMMARY' ? 'PROJECT_SUMMARY' : 'CUSTOM', title: this.reportTitle(payload.analysisType), contentMarkdown: generated.content, modelName: providerName, modelVersion: model, createdAt: new Date().toISOString(), analysisRunId: payload.analysisRunId, source: payload.source, sourceReportType: payload.reportType, importId: payload.importId, rawFileId: payload.rawFileId, provider: providerName, model, generationStatus, relatedFactIds: context.facts.map((fact) => String(fact.id ?? fact.factType)).slice(0, 100), relatedEntityIds: context.semanticEntities.map((entity: any) => String(entity.id)).filter(Boolean).slice(0, 100), metadata: { provider: providerName, model, generationStatus, analysisRunId: payload.analysisRunId, source: payload.source, reportType: payload.reportType, importId: payload.importId, rawFileId: payload.rawFileId, rawAiOutput: generated.rawAiOutput } };
       }
       stage = AiAnalysisErrorStage.AI_OUTPUT_PERSISTENCE;
-      if (recommendations.length > 0) await this.recommendationRepository.saveMany(recommendations);
-      if (report) await this.aiReportRepository.save(report);
+      if (recommendations.length > 0) {
+        await this.recommendationRepository.deleteByScope(payload.projectId, { source: payload.source, reportType: payload.reportType, importId: payload.importId, analysisRunId: payload.analysisRunId });
+        await this.recommendationRepository.saveMany(recommendations);
+      }
+      if (report) {
+        await this.aiReportRepository.deleteByScope(payload.projectId, { source: payload.source, reportType: payload.reportType, importId: payload.importId, analysisRunId: payload.analysisRunId });
+        await this.aiReportRepository.save(report);
+      }
       const outputSummary = { provider: providerName, model, generationStatus, factsCount: context.facts.length, kpisCount: Object.keys(context.kpis).length, contextObjectCount: context.contextObjects.length, recommendationsGenerated: recommendations.length, reportGenerated: Boolean(report), unavailableMetrics: context.unavailableMetrics };
       if (generationStatus === 'MOCKED') await this.analysisRunRepository.markCompletedWithWarnings(payload.projectId, payload.analysisRunId, outputSummary);
       else await this.analysisRunRepository.markCompleted(payload.projectId, payload.analysisRunId, outputSummary);

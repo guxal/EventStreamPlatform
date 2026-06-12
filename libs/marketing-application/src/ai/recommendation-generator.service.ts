@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { DetectedFact, FactType } from '@metrics-platform/marketing-shared';
-import { AI_DEFENSIVE_SYSTEM_PROMPT } from './ai-safety.constants';
+import { AI_DEFENSIVE_SYSTEM_PROMPT, AI_OUTPUT_JSON_RULES } from './ai-safety.constants';
 import type { AiMarketingContext } from './context';
 import type { AiProvider } from './providers';
 
@@ -41,14 +41,14 @@ export class RecommendationGeneratorService {
       const response = await provider.generateJson<{ recommendations?: AiRecommendationOutput[] }>({
         schemaName: 'marketing_recommendations',
         messages: [
-          { role: 'system', content: AI_DEFENSIVE_SYSTEM_PROMPT },
-          { role: 'user', content: `Generate concise structured recommendations from this bounded context only:\n${JSON.stringify(context)}` },
+          { role: 'system', content: `${AI_DEFENSIVE_SYSTEM_PROMPT}\n${AI_OUTPUT_JSON_RULES}` },
+          { role: 'user', content: `Generate concise structured recommendations from this bounded context only. Expected JSON schema: {\"recommendations\":[{\"title\":\"string\",\"summary\":\"string\",\"priority\":\"LOW|MEDIUM|HIGH|CRITICAL\",\"relatedFactIds\":[\"fact ids or fact types\"],\"relatedEntityIds\":[\"entity ids\"],\"source\":\"source if known\",\"reportType\":\"report type if known\",\"recommendedActions\":[\"actions\"],\"limitations\":[\"limitations and missing data\"],\"confidence\":0.0}]}. Every item must reference fact types/fact IDs and must not claim unavailable metrics.\n${JSON.stringify(context)}` },
         ],
         temperature: 0.2,
         metadata: { facts: context.facts, unavailableMetrics: context.unavailableMetrics },
       });
       const outputs = Array.isArray(response.data.recommendations) ? response.data.recommendations : [];
-      return outputs.map((output, index) => ({
+      return outputs.filter((output) => this.isValidOutput(output)).map((output, index) => ({
         title: output.title,
         body: output.summary,
         summary: output.summary,
@@ -70,6 +70,10 @@ export class RecommendationGeneratorService {
         limitations: ['AI provider failed or returned invalid JSON; deterministic fallback generated from detected facts only.'],
       }));
     }
+  }
+
+  private isValidOutput(output: Partial<AiRecommendationOutput>): output is AiRecommendationOutput {
+    return Boolean(output?.title && output?.summary && output?.priority && Array.isArray(output.relatedFactIds) && Array.isArray(output.recommendedActions) && Array.isArray(output.limitations));
   }
 
   generateFromFacts(facts: DetectedFact[]): GeneratedRecommendation[] {
@@ -101,7 +105,7 @@ export class RecommendationGeneratorService {
   }
 
   private limitationsForFact(fact: DetectedFact): string[] {
-    return fact.factType === 'NO_RELIABLE_COST_SOURCE'
+    return String(fact.factType) === 'NO_RELIABLE_COST_SOURCE'
       ? ['Cost-based metrics such as ROAS, CPA and CAC are unavailable because no reliable cost source was provided.']
       : ['Recommendation is grounded only in detected facts and bounded KPI context.'];
   }

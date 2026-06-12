@@ -152,6 +152,7 @@ export class AppsFlyerImportProcessor implements OnModuleInit {
             rawFileId: payload.rawFileId,
           },
         }));
+        await this.detectedFactRepository.deleteByScope(payload.projectId, { source: payload.source, reportType: payload.reportType, importId: payload.dataImportId, rawFileId: payload.rawFileId });
         const savedFacts = await this.detectedFactRepository.saveMany(payload.projectId, enrichedFacts);
         result.facts = enrichedFacts;
         return { factsStored: savedFacts.length, factTypes: savedFacts.map((fact) => fact.factType) };
