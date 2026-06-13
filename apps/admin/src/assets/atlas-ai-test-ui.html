@@ -530,8 +530,22 @@
     function fileChecksum(file) { return file.checksum || file.checksumSha256 || file.checksum_sha256 || ''; }
     function eventCountFromRows(rows) { return rows.reduce((sum, row) => sum + Number(row.count ?? row.events ?? row.totalEvents ?? 0), 0); }
     function uniqueUsersFromRows(rows) { return rows.reduce((sum, row) => sum + Number(row.uniqueUsers ?? row.unique_users ?? 0), 0); }
+    function formatListValue(value) {
+      if (value == null) return '';
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+      if (Array.isArray(value)) return value.map(formatListValue).filter(Boolean).join(', ');
+      if (typeof value === 'object') {
+        const metric = value.metric || value.name || value.key || value.label;
+        const reason = value.reason || value.message || value.description || value.limitation;
+        if (metric && reason) return `${metric}: ${reason}`;
+        if (metric) return String(metric);
+        if (reason) return String(reason);
+        return JSON.stringify(value);
+      }
+      return String(value);
+    }
     function metricCard(label, value, hint = '') {
-      return `<div class="metric-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${hint ? `<p>${escapeHtml(hint)}</p>` : ''}</div>`;
+      return `<div class="metric-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(formatListValue(value))}</strong>${hint ? `<p>${escapeHtml(formatListValue(hint))}</p>` : ''}</div>`;
     }
     function renderFileCards(files) {
       const container = $('fileCards');
@@ -663,7 +677,7 @@
         ? kpiEntries.map(([label, value]) => metricCard(label, formatNumber(value))).join('')
         : '<div class="empty-state">Aún no hay KPIs procesados. Procesa un archivo READY_TO_PROCESS.</div>';
       const unavailable = overview.unavailableMetrics || totals.unavailableMetrics || [];
-      if (unavailable.length) $('kpiCards').innerHTML += metricCard('Unavailable', unavailable.length, unavailable.join(', '));
+      if (unavailable.length) $('kpiCards').innerHTML += metricCard('Unavailable', unavailable.length, formatListValue(unavailable));
       renderFactsPreview(facts);
     }
     function renderFactsPreview(facts) {
