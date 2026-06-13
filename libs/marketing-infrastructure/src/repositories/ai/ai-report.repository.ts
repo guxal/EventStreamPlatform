@@ -15,8 +15,8 @@ export class AiReportRepository {
       `INSERT INTO ai_reports (
          id, project_id, report_type, title, content_markdown, model_name, model_version, metadata,
          provider, source, source_report_type, import_id, raw_file_id, raw_ai_output, generation_status,
-         error_message, related_fact_ids, related_entity_ids, analysis_run_id, model
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12::uuid, $13::uuid, $14::jsonb, $15, $16, $17::text[], $18::text[], $19::uuid, $20)
+         error_message, related_fact_ids, related_entity_ids, analysis_run_id, model, scope_type, scope_id, date_range_start, date_range_end
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12::uuid, $13::uuid, $14::jsonb, $15, $16, $17::text[], $18::text[], $19::uuid, $20, $21, $22::uuid, $23::date, $24::date)
        ON CONFLICT (id) DO NOTHING`,
       [
         item.id,
@@ -39,6 +39,10 @@ export class AiReportRepository {
         metadata.relatedEntityIds ?? item.relatedEntityIds ?? [],
         metadata.analysisRunId ?? item.analysisRunId ?? null,
         metadata.model ?? item.model ?? item.modelVersion ?? null,
+        metadata.scopeType ?? 'IMPORT',
+        metadata.scopeId ?? null,
+        metadata.dateRangeStart ?? null,
+        metadata.dateRangeEnd ?? null,
       ],
     );
     return item;
@@ -52,6 +56,8 @@ export class AiReportRepository {
     this.addFilter(clauses, params, 'COALESCE(source_report_type, metadata->>\'reportType\')', filters.reportType);
     this.addFilter(clauses, params, 'COALESCE(import_id::text, metadata->>\'importId\', metadata->>\'dataImportIds\')', filters.importId);
     this.addFilter(clauses, params, 'analysis_run_id::text', filters.analysisRunId);
+    this.addFilter(clauses, params, 'scope_type', filters.scopeType ?? filters.scope);
+    this.addFilter(clauses, params, 'scope_id::text', filters.scopeId);
     if (params.length === 1) return 0;
     const rows = await this.dataSource.query(`DELETE FROM ai_reports WHERE ${clauses.join(' AND ')} RETURNING id`, params);
     return unwrapQueryRows<Record<string, any>>(rows).length;
@@ -65,6 +71,10 @@ export class AiReportRepository {
     this.addFilter(clauses, params, 'COALESCE(import_id::text, metadata->>\'importId\')', filters.importId);
     this.addFilter(clauses, params, 'COALESCE(generation_status, metadata->>\'generationStatus\')', filters.generationStatus);
     this.addFilter(clauses, params, 'analysis_run_id::text', filters.analysisRunId);
+    this.addFilter(clauses, params, 'scope_type', filters.scopeType ?? filters.scope);
+    this.addFilter(clauses, params, 'scope_id::text', filters.scopeId);
+    if (filters.dateRangeStart !== undefined) { params.push(filters.dateRangeStart); clauses.push(`date_range_start IS NOT DISTINCT FROM $${params.length}::date`); }
+    if (filters.dateRangeEnd !== undefined) { params.push(filters.dateRangeEnd); clauses.push(`date_range_end IS NOT DISTINCT FROM $${params.length}::date`); }
     if (filters.from) { params.push(filters.from); clauses.push(`created_at >= $${params.length}`); }
     if (filters.to) { params.push(filters.to); clauses.push(`created_at <= $${params.length}`); }
     const rows = await this.dataSource.query(`SELECT * FROM ai_reports WHERE ${clauses.join(' AND ')} ORDER BY created_at DESC`, params);
@@ -100,7 +110,7 @@ export class AiReportRepository {
       relatedEntityIds: row.related_entity_ids ?? metadata.relatedEntityIds ?? [],
       errorMessage: row.error_message ?? metadata.errorMessage ?? null,
       createdAt: this.toIso(row.created_at),
-      metadata,
+      metadata: { ...metadata, scopeType: row.scope_type ?? metadata.scopeType, scopeId: row.scope_id ?? metadata.scopeId, dateRangeStart: row.date_range_start ?? metadata.dateRangeStart, dateRangeEnd: row.date_range_end ?? metadata.dateRangeEnd },
     };
   }
 

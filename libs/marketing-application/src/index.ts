@@ -17,3 +17,5 @@ export * from './ai/analysis';
 export * from './ai/questions';
 
 export * from './ai/debug';
+
+export * from './project-gold';

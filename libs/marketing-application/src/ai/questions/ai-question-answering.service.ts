@@ -64,7 +64,7 @@ export class AiQuestionAnsweringService {
       const messages = [
         {
           role: 'system' as const,
-          content: `${AI_DEFENSIVE_SYSTEM_PROMPT}\nAnswer questions only from the bounded JSON data. Do not ask for raw CSV, generate SQL, or claim unavailable cost metrics. If the question asks for unsupported ROAS/profitability/cost metrics, refuse with the missing cost-source explanation. If Event Revenue is empty and EVENT_AMOUNT_IN_JSON is present, explain that monetary analysis uses Event Value.amount.`,
+          content: `${AI_DEFENSIVE_SYSTEM_PROMPT}\nAnswer questions only from the bounded JSON data. Do not ask for raw CSV, generate SQL, or claim unavailable cost metrics. For general/project-level questions, prefer projectGold/project-level facts/KPIs/reports over import-level facts; if projectGoldStatus is NOT_COMPUTED say project-level analysis has not been computed yet and suggest recompute-project-gold. If the question asks for unsupported ROAS/profitability/cost metrics, refuse with the missing cost-source explanation. If Event Revenue is empty and EVENT_AMOUNT_IN_JSON is present, explain that monetary analysis uses Event Value.amount.`,
         },
         {
           role: 'user' as const,
@@ -166,6 +166,7 @@ export class AiQuestionAnsweringService {
   ) {
     if (intent === 'UNAVAILABLE_METRICS')
       return {
+        projectGold: await this.dataService.getProjectGoldSummary(input),
         unavailableMetrics: await this.dataService.getUnavailableMetrics(input),
         overview: await this.dataService.getProjectOverview(input),
       };
@@ -176,6 +177,7 @@ export class AiQuestionAnsweringService {
       };
     if (intent === 'MEDIA_SOURCE_PERFORMANCE')
       return {
+        projectGold: await this.dataService.getProjectGoldSummary(input),
         entityPerformance: await this.dataService.getEntityPerformance(input),
         unavailableMetrics: await this.dataService.getUnavailableMetrics(input),
       };
@@ -186,6 +188,7 @@ export class AiQuestionAnsweringService {
       };
     if (intent === 'BLOCKED_TRAFFIC')
       return {
+        projectGold: await this.dataService.getProjectGoldSummary(input),
         blockedTraffic: await this.dataService.getBlockedTraffic(input),
       };
     if (intent === 'RECOMMENDATIONS')
@@ -213,6 +216,7 @@ export class AiQuestionAnsweringService {
         contextObjects: await this.dataService.getContextObjects(input),
       };
     return {
+      projectGold: await this.dataService.getProjectGoldSummary(input),
       overview: await this.dataService.getProjectOverview(input),
       facts: await this.dataService.getTopFacts(input),
       unavailableMetrics: await this.dataService.getUnavailableMetrics(input),
@@ -223,6 +227,8 @@ export class AiQuestionAnsweringService {
     intent: AiQuestionIntent,
     data: Record<string, unknown>,
   ): string {
+    const inputHasImportData = (_data: Record<string, unknown>) => false;
+    if ((data as any).overview?.projectGoldStatus === 'NOT_COMPUTED' && !inputHasImportData(data)) return 'Project-level analysis has not been computed yet. Run recompute-project-gold to answer project-level questions from combined AppsFlyer reports.';
     if (intent === 'UNAVAILABLE_METRICS')
       return `ROAS, CPA, CAC, profitability, and other cost-based metrics cannot be calculated with the current data because no reliable cost source is available. AppsFlyer event data can show event volume and monetary values from Event Value.amount, but ROAS requires cost data from Google Ads, Meta Ads, or another reliable cost source.`;
     const facts = Array.isArray((data as any).facts) ? (data as any).facts : [];

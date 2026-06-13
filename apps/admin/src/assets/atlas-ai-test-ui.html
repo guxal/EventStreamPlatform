@@ -50,6 +50,11 @@
     .fact-list { display:grid; gap:10px; }
     .fact-card { border:1px solid var(--line); border-radius:12px; padding:12px; background:#081120; }
     .fact-card strong { display:block; margin-bottom:6px; }
+    .data-table { width:100%; border-collapse:collapse; font-size:13px; overflow:hidden; border-radius:12px; }
+    .data-table th,.data-table td { border-bottom:1px solid var(--line); padding:9px 8px; text-align:left; vertical-align:top; }
+    .data-table th { color:#c7d2fe; background:#0b1222; position:sticky; top:0; }
+    .data-table tr:last-child td { border-bottom:0; }
+    .table-wrap { max-height:360px; overflow:auto; border:1px solid var(--line); border-radius:12px; background:#050914; }
     .section-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
     .ok { color:var(--ok); } .warn { color:var(--warn); } .err { color:var(--err); }
     pre { white-space:pre-wrap; word-break:break-word; background:#050914; border:1px solid var(--line); border-radius:12px; padding:12px; max-height:360px; overflow:auto; }
@@ -157,6 +162,7 @@
         <button onclick="showTab('files', this); listFiles()">File Hub</button>
         <button onclick="showTab('reader', this)">Reader</button>
         <button onclick="showTab('analysis', this)">AI analysis_runs</button>
+        <button onclick="showTab('project-gold', this); loadProjectGold()">Project Gold</button>
         <button onclick="showTab('monitoring', this)">Monitoreo jobs</button>
         <button onclick="showTab('questions', this)">Preguntas</button>
         <button onclick="showTab('raw', this)">Respuesta raw</button>
@@ -212,6 +218,9 @@
             <button onclick="getReader('/projects/{projectId}/semantic/relationships?source={source}&reportType={reportType}&importId={importId}')">Relationships</button>
             <button onclick="getReader('/projects/{projectId}/context?source={source}&reportType={reportType}')">Context</button>
             <button onclick="getReader('/projects/{projectId}/traffic-quality/blocked?source={source}')">Blocked traffic</button>
+            <button onclick="getReader('/projects/{projectId}/analysis/summary?source={source}')">Project Gold summary</button>
+            <button onclick="getReader('/projects/{projectId}/analysis/funnel?source={source}')">Project Gold funnel</button>
+            <button onclick="getReader('/projects/{projectId}/analysis/media-sources?source={source}')">Project Gold media sources</button>
             <button onclick="getReader('/projects/{projectId}/imports/{importId}/flow')">Import flow</button>
           </div>
         </div>
@@ -224,6 +233,11 @@
             <button class="small secondary" onclick="refreshAiOutputs()">Refrescar vista</button>
           </div>
           <div class="grid">
+            <button onclick="getReader('/projects/{projectId}/recommendations?source={source}&reportType={reportType}&importId={importId}')">Recommendations</button>
+            <button onclick="getReader('/projects/{projectId}/reports?source={source}&reportType={reportType}&importId={importId}')">Reports</button>
+            <button onclick="getReader('/projects/{projectId}/facts?scope=PROJECT&source={source}')">Project facts</button>
+            <button onclick="getReader('/projects/{projectId}/recommendations?scope=PROJECT&source={source}')">Project recommendations</button>
+            <button onclick="getReader('/projects/{projectId}/reports?scope=PROJECT&source={source}')">Project reports</button>
             <button onclick="loadRecommendations()">Ver Recommendations</button>
             <button onclick="loadReports()">Ver Reports</button>
             <button onclick="getReader('/projects/{projectId}/analysis-runs?source={source}&reportType={reportType}&importId={importId}')">Analysis runs</button>
@@ -250,6 +264,58 @@
           <button onclick="createAnalysisRun()">Crear + encolar</button>
           <button class="secondary" onclick="getAnalysisRun()">Ver analysisRunId</button>
           <label>Analysis Run ID</label><input id="analysisRunId" placeholder="se autocompleta al crear" />
+        </div>
+      </div>
+
+      <div id="tab-project-gold" class="stack hidden">
+        <div class="card">
+          <div class="section-head">
+            <div>
+              <h2>Project Gold Engine</h2>
+              <p>Recompute project-level Gold desde ClickHouse Silver, sin releer CSV ni pedirle joins al AI.</p>
+            </div>
+            <span class="pill">scope=PROJECT</span>
+          </div>
+          <div class="grid">
+            <div><label>Source</label><input id="projectGoldSource" value="appsflyer" placeholder="appsflyer" /></div>
+            <div><label>Force</label><select id="projectGoldForce"><option value="true">true</option><option value="false">false</option></select></div>
+          </div>
+          <div class="grid">
+            <div><label>Date range start</label><input id="projectGoldFrom" type="date" /></div>
+            <div><label>Date range end</label><input id="projectGoldTo" type="date" /></div>
+          </div>
+          <div class="grid">
+            <button onclick="recomputeProjectGold()">POST recompute-project-gold</button>
+            <button class="secondary" onclick="loadProjectGold()">Cargar Project Gold latest</button>
+          </div>
+          <p class="muted">Tip: deja fechas vacías para recomputar el proyecto completo con todos los AppsFlyer reports ya procesados.</p>
+        </div>
+
+        <div class="card">
+          <div class="section-head">
+            <div>
+              <h2>Resumen Project Gold</h2>
+              <p>KPIs, disponibilidad, limitaciones, period funnel, cohort funnel y blocked traffic.</p>
+            </div>
+            <button class="small secondary" onclick="loadProjectGold()">Refrescar</button>
+          </div>
+          <div id="projectGoldSummaryCards" class="metric-grid"></div>
+          <h3>Data availability / limitaciones</h3>
+          <div id="projectGoldAvailability" class="fact-list"></div>
+          <h3>Period vs Cohort funnel</h3>
+          <div id="projectGoldFunnelCards" class="metric-grid"></div>
+        </div>
+
+        <div class="card">
+          <h2>Media source quality</h2>
+          <p>Ranking determinístico. No es profitability ni ROAS porque AppsFlyer-only no trae costo confiable.</p>
+          <div id="projectGoldMediaSources" class="table-wrap"></div>
+        </div>
+
+        <div class="card">
+          <h2>Project outputs</h2>
+          <p>Facts/recommendations/reports con scope=PROJECT para validar que el AI chat use contexto agregado.</p>
+          <div id="projectGoldFacts" class="fact-list"></div>
         </div>
       </div>
 
@@ -298,6 +364,8 @@
           <h2>Preguntas rápidas</h2>
           <div class="grid">
             <button onclick="quickQuestion('What are the main detected facts?')">Main facts</button>
+            <button onclick="quickQuestion('What is the install to FTD rate?')">Install → FTD</button>
+            <button onclick="quickQuestion('Can we calculate ROAS?')">ROAS?</button>
             <button onclick="quickQuestion('Which media source performed better?')">Media source</button>
             <button onclick="quickQuestion('What data quality issues exist?')">Data quality</button>
             <button onclick="quickQuestion('Summarize the latest report')">Latest report</button>
@@ -325,7 +393,7 @@
 
   <script>
     const $ = (id) => document.getElementById(id);
-    const fields = ['writerBase','readerBase','projectId','source','reportType','importId','rawFileId','analysisRunId','processRunId'];
+    const fields = ['writerBase','readerBase','projectId','source','reportType','importId','rawFileId','analysisRunId','processRunId','projectGoldSource','projectGoldFrom','projectGoldTo','projectGoldForce'];
     let monitorTimer = null;
 
     function loadConfig() {
@@ -361,7 +429,7 @@
       if ([...select.options].some((option) => option.value === value)) select.value = value;
     }
     function cfg() {
-      return Object.fromEntries(fields.map((id) => [id, ($(id)?.value || '').trim()]));
+      return Object.fromEntries(fields.filter((id) => $(id)).map((id) => [id, $(id).value.trim()]));
     }
     function pathTemplate(path) {
       const c = cfg();
@@ -839,6 +907,114 @@
     }
     async function getAnalysisRun() { try { requiredProject(); await request('reader', '/projects/{projectId}/analysis-runs/{analysisRunId}', { method:'GET' }); } catch(e) { showError(e); } }
 
+    function projectGoldSource() {
+      return ($('projectGoldSource')?.value || $('source').value || 'appsflyer').trim().toLowerCase();
+    }
+    function projectGoldQuery() {
+      const params = new URLSearchParams();
+      params.set('source', projectGoldSource());
+      if ($('projectGoldFrom')?.value) params.set('dateRangeStart', $('projectGoldFrom').value);
+      if ($('projectGoldTo')?.value) params.set('dateRangeEnd', $('projectGoldTo').value);
+      const text = params.toString();
+      return text ? `?${text}` : '';
+    }
+    async function recomputeProjectGold() {
+      try {
+        requiredProject();
+        saveConfig();
+        const body = await request('writer', '/projects/{projectId}/analysis/recompute', jsonOptions({
+          source: projectGoldSource(),
+          dateRangeStart: $('projectGoldFrom').value || undefined,
+          dateRangeEnd: $('projectGoldTo').value || undefined,
+          force: $('projectGoldForce').value !== 'false',
+        }));
+        if (body?.analysisRunId) setStatus(`Project Gold encolado: ${body.analysisRunId}`, 'ok');
+        await loadProjectGold(false);
+      } catch(e) { showError(e); }
+    }
+    async function loadProjectGold(showRaw = true) {
+      try {
+        requiredProject();
+        saveConfig();
+        const query = projectGoldQuery();
+        const [summary, funnel, mediaSources, facts, recommendations, reports] = await Promise.all([
+          fetchJson('reader', '/projects/{projectId}/analysis/summary' + query),
+          fetchJson('reader', '/projects/{projectId}/analysis/funnel' + query),
+          fetchJson('reader', '/projects/{projectId}/analysis/media-sources' + query),
+          fetchJson('reader', '/projects/{projectId}/facts?scope=PROJECT&source=' + encodeURIComponent(projectGoldSource())),
+          fetchJson('reader', '/projects/{projectId}/recommendations?scope=PROJECT&source=' + encodeURIComponent(projectGoldSource())),
+          fetchJson('reader', '/projects/{projectId}/reports?scope=PROJECT&source=' + encodeURIComponent(projectGoldSource())),
+        ]);
+        const result = { summary, funnel, mediaSources, facts, recommendations, reports };
+        renderProjectGold(result);
+        if (showRaw) showOutput({ projectGoldLoadedAt: new Date().toISOString(), ...result });
+      } catch(e) { showError(e); }
+    }
+    function renderProjectGold(result) {
+      const summary = result.summary?.body || {};
+      const funnel = result.funnel?.body || {};
+      const media = result.mediaSources?.body?.mediaSourceQuality || summary.mediaSourceQuality || {};
+      const facts = asArray(result.facts?.body);
+      const recommendations = asArray(result.recommendations?.body);
+      const reports = asArray(result.reports?.body);
+      if (summary.status === 'NOT_COMPUTED') {
+        $('projectGoldSummaryCards').innerHTML = metricCard('Status', 'NOT_COMPUTED', 'Ejecuta recompute-project-gold');
+        $('projectGoldAvailability').innerHTML = `<div class="empty-state">${escapeHtml(summary.message || 'Project-level analysis has not been computed yet.')}</div>`;
+        $('projectGoldFunnelCards').innerHTML = '';
+        $('projectGoldMediaSources').innerHTML = '<div class="empty-state">Sin ranking hasta completar Project Gold.</div>';
+        $('projectGoldFacts').innerHTML = '';
+        return;
+      }
+      const kpis = summary.kpis || {};
+      const period = summary.periodFunnel || funnel.periodFunnel || {};
+      const cohort = summary.cohortFunnel || funnel.cohortFunnel || {};
+      const blocked = summary.blockedTraffic || {};
+      $('projectGoldSummaryCards').innerHTML = [
+        metricCard('Run status', summary.analysisRun?.status || 'latest', summary.analysisRun?.id || summary.analysisRunId || ''),
+        metricCard('Report types', kpis.available_report_types_count ?? summary.dataAvailability?.availableReportTypes?.length ?? '—', 'available AppsFlyer reports'),
+        metricCard('Valid events', formatNumber(kpis.total_valid_events), 'blocked excluded from funnel'),
+        metricCard('Blocked events', formatNumber(kpis.total_blocked_events), `rate ${formatPercent(kpis.blocked_event_rate)}`),
+        metricCard('Installs', formatNumber(kpis.installs ?? period.installs), 'valid traffic'),
+        metricCard('FTD users', formatNumber(kpis.ftd_users ?? period.ftdUsers), 'valid traffic'),
+        metricCard('Deposit amount', formatNumber(kpis.deposit_amount ?? period.depositAmount), 'Event Value.amount when available'),
+        metricCard('Cost source', kpis.has_reliable_cost ? 'available' : 'missing', 'ROAS/CPA/CAC unavailable without cost'),
+      ].join('');
+      const availability = summary.dataAvailability || funnel.dataAvailability || {};
+      const limitations = [...(availability.limitations || []), ...(summary.limitations || [])];
+      $('projectGoldAvailability').innerHTML = [
+        `<div class="fact-card"><strong>Available reports</strong><p>${escapeHtml((availability.availableReportTypes || []).join(', ') || 'n/a')}</p></div>`,
+        `<div class="fact-card"><strong>Missing reports</strong><p>${escapeHtml((availability.missingReportTypes || []).join(', ') || 'n/a')}</p></div>`,
+        `<div class="fact-card"><strong>Limitations</strong><p>${escapeHtml(limitations.length ? Array.from(new Set(limitations)).join(' · ') : 'Sin limitaciones adicionales.')}</p></div>`,
+      ].join('');
+      $('projectGoldFunnelCards').innerHTML = [
+        metricCard('Period install→register', formatPercent(period.installToRegisterRate), period.installToRegisterRate === null ? 'no installs' : 'period-based'),
+        metricCard('Period install→deposit', formatPercent(period.installToDepositRate), period.installToDepositRate === null ? 'no installs' : 'period-based'),
+        metricCard('Period install→FTD', formatPercent(period.installToFtdRate), period.installToFtdRate === null ? 'no installs' : 'period-based'),
+        metricCard('Cohort available', cohort.available ? 'yes' : 'no', cohort.limitations?.[0] || 'D0/D1/D3/D7/D30'),
+        metricCard('Cohort users', formatNumber(cohort.cohortUsers), `identity ${formatPercent(cohort.identityCoverageRate)}`),
+        metricCard('D7 install→FTD', formatPercent(cohort.windows?.D7?.installToFtdRate), 'cohort cumulative window'),
+        metricCard('Blocked install rate', formatPercent(blocked.blockedInstallRate), `${formatNumber(blocked.blockedInstalls)} blocked installs`),
+        metricCard('Blocked event rate', formatPercent(blocked.blockedEventRate), `${formatNumber(blocked.blockedInAppEvents)} blocked in-app events`),
+      ].join('');
+      renderMediaSourceTable(media.rows || []);
+      $('projectGoldFacts').innerHTML = [
+        `<div class="fact-card"><strong>Project facts</strong><p>${facts.length} facts · ${recommendations.length} recommendations · ${reports.length} reports</p></div>`,
+        ...facts.slice(0, 8).map((fact) => `<div class="fact-card"><strong>${escapeHtml(fact.factType || fact.fact_type)} <span class="pill">${escapeHtml(fact.severity || 'INFO')}</span></strong><p>${escapeHtml(fact.recommendationHint || fact.recommendation_hint || '')}</p></div>`),
+      ].join('');
+    }
+    function renderMediaSourceTable(rows) {
+      if (!rows.length) {
+        $('projectGoldMediaSources').innerHTML = '<div class="empty-state">Sin media sources en Project Gold.</div>';
+        return;
+      }
+      $('projectGoldMediaSources').innerHTML = `<table class="data-table"><thead><tr><th>#</th><th>Media source</th><th>Score</th><th>Installs</th><th>FTD</th><th>Deposit amount</th><th>Blocked rate</th><th>Reasons</th></tr></thead><tbody>${rows.slice(0, 25).map((row) => `<tr><td>${escapeHtml(row.rank || '')}</td><td>${escapeHtml(row.mediaSource || 'unknown')}</td><td>${formatNumber(row.score)}</td><td>${formatNumber(row.installs)}</td><td>${formatNumber(row.ftdUsers)}</td><td>${formatNumber(row.depositAmount)}</td><td>${formatPercent(row.blockedRate)}</td><td>${escapeHtml((row.reasons || []).join(' · '))}</td></tr>`).join('')}</tbody></table>`;
+    }
+    function formatPercent(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return 'n/a';
+      return `${formatNumber(n * 100)}%`;
+    }
+
     async function monitorOnce() {
       try {
         requiredProject();
@@ -846,6 +1022,7 @@
         const c = cfg();
         const checks = [
           ['processRuns', 'reader', '/projects/{projectId}/processes?limit=10'],
+          ['projectGoldSummary', 'reader', '/projects/{projectId}/analysis/summary?source={source}'],
         ];
         if (c.rawFileId) checks.push(['rawFile', 'writer', '/projects/{projectId}/files/{rawFileId}']);
         if (c.importId) checks.push(['importFlow', 'reader', '/projects/{projectId}/imports/{importId}/flow']);
@@ -868,11 +1045,13 @@
       const importStatus = result.importFlow?.body?.status || result.importFlow?.body?.run?.status || result.importFlow?.body?.dataImportStatus || 'n/a';
       const analysisStatus = result.analysisRun?.body?.status || 'n/a';
       const processStatus = result.processRunDetail?.body?.status || 'n/a';
+      const projectGoldStatus = result.projectGoldSummary?.body?.analysisRun?.status || result.projectGoldSummary?.body?.status || 'n/a';
       $('monitorSummary').innerHTML = [
         `<span class="pill">raw_file: ${rawStatus}</span>`,
         `<span class="pill">import_flow: ${importStatus}</span>`,
         `<span class="pill">analysis_run: ${analysisStatus}</span>`,
         `<span class="pill">process_run: ${processStatus}</span>`,
+        `<span class="pill">project_gold: ${projectGoldStatus}</span>`,
         `<span class="pill">updated: ${new Date().toLocaleTimeString()}</span>`,
       ].join(' ');
       $('monitorOutput').textContent = JSON.stringify(result, null, 2);
@@ -935,6 +1114,12 @@
     $('dashboardAiOutputs').innerHTML = '<div class="empty-state">Sin AI outputs cargados.</div>';
     renderFactsPreview([]);
     renderFileCards([]);
+    if ($('projectGoldSummaryCards')) {
+      $('projectGoldSummaryCards').innerHTML = metricCard('Project Gold', '—', 'carga o recomputa análisis de proyecto');
+      $('projectGoldAvailability').innerHTML = '<div class="empty-state">Sin Project Gold cargado todavía.</div>';
+      $('projectGoldFunnelCards').innerHTML = '';
+      $('projectGoldMediaSources').innerHTML = '<div class="empty-state">Sin ranking cargado todavía.</div>';
+    }
     renderRecommendations([]);
     renderReports([]);
   </script>

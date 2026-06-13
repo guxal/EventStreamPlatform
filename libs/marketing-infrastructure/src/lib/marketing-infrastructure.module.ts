@@ -11,6 +11,8 @@ import { RawImportFileRepository } from '../repositories/file-hub/raw-import-fil
 import { ClickHouseMarketingRepository } from '../repositories/marketing/clickhouse-marketing.repository';
 import { DetectedFactRepository } from '../repositories/marketing/detected-fact.repository';
 import { MarketingEntityRepository } from '../repositories/marketing/marketing-entity.repository';
+import { ProjectAnalysisRunRepository } from '../repositories/project-analysis/project-analysis-run.repository';
+import { ClickHouseProjectAnalyticsRepository } from '../repositories/project-analysis/clickhouse-project-analytics.repository';
 import { ProcessAuditRepository } from '../repositories/process-audit/process-audit.repository';
 import { DataImportsReaderRepository } from '../repositories/reader/data-imports-reader.repository';
 import { FactsReaderRepository } from '../repositories/reader/facts-reader.repository';
@@ -23,6 +25,8 @@ import { ObjectStorageService } from '../storage/object-storage.service';
 
 const repositories = [
   AnalysisRunRepository,
+  ProjectAnalysisRunRepository,
+  ClickHouseProjectAnalyticsRepository,
   AiDebugTraceRepository,
   RecommendationRepository,
   AiReportRepository,

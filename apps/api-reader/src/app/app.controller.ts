@@ -66,6 +66,36 @@ export class AppController {
   }
 
 
+  @Get('projects/:id/analysis/summary')
+  getProjectAnalysisSummary(
+    @Param('id') projectId: string,
+    @Query('source') source?: string,
+    @Query('dateRangeStart') dateRangeStart?: string,
+    @Query('dateRangeEnd') dateRangeEnd?: string,
+  ) {
+    return this.appService.getProjectAnalysisSummary(projectId, { source, dateRangeStart, dateRangeEnd });
+  }
+
+  @Get('projects/:id/analysis/funnel')
+  getProjectAnalysisFunnel(
+    @Param('id') projectId: string,
+    @Query('source') source?: string,
+    @Query('dateRangeStart') dateRangeStart?: string,
+    @Query('dateRangeEnd') dateRangeEnd?: string,
+  ) {
+    return this.appService.getProjectAnalysisFunnel(projectId, { source, dateRangeStart, dateRangeEnd });
+  }
+
+  @Get('projects/:id/analysis/media-sources')
+  getProjectAnalysisMediaSources(
+    @Param('id') projectId: string,
+    @Query('source') source?: string,
+    @Query('dateRangeStart') dateRangeStart?: string,
+    @Query('dateRangeEnd') dateRangeEnd?: string,
+  ) {
+    return this.appService.getProjectAnalysisMediaSources(projectId, { source, dateRangeStart, dateRangeEnd });
+  }
+
   @Get('projects/:id/appsflyer/overview')
   getAppsFlyerOverview(@Param('id') projectId: string) {
     return this.appService.getAppsFlyerOverview(projectId);
@@ -129,8 +159,8 @@ export class AppController {
   }
 
   @Get('projects/:id/facts')
-  listFacts(@Param('id') projectId: string, @Query('source') source?: string, @Query('reportType') reportType?: string, @Query('report_type') report_type?: string, @Query('includeSemantic') includeSemantic?: string, @Query('include_semantic') include_semantic?: string) {
-    return this.appService.listProjectFacts(projectId, { source, reportType: reportType ?? report_type, includeSemantic: includeSemantic ?? include_semantic });
+  listFacts(@Param('id') projectId: string, @Query('source') source?: string, @Query('reportType') reportType?: string, @Query('report_type') report_type?: string, @Query('includeSemantic') includeSemantic?: string, @Query('include_semantic') include_semantic?: string, @Query('scope') scope?: string) {
+    return this.appService.listProjectFacts(projectId, { source, reportType: reportType ?? report_type, includeSemantic: includeSemantic ?? include_semantic, scope });
   }
 
   @Get('projects/:id/recommendations')
@@ -156,8 +186,10 @@ export class AppController {
     @Query('analysis_run_id') analysis_run_id?: string,
     @Query('includeSemantic') includeSemantic?: string,
     @Query('include_semantic') include_semantic?: string,
+    @Query('scope') scope?: string,
   ) {
     return this.appService.listProjectRecommendations(projectId, {
+      scope,
       source,
       reportType: reportType ?? report_type,
       importId: importId ?? import_id,
@@ -189,8 +221,10 @@ export class AppController {
     @Query('analysis_run_id') analysis_run_id?: string,
     @Query('includeSemantic') includeSemantic?: string,
     @Query('include_semantic') include_semantic?: string,
+    @Query('scope') scope?: string,
   ) {
     return this.appService.listProjectReports(projectId, {
+      scope,
       source,
       reportType: reportType ?? report_type,
       importId: importId ?? import_id,
