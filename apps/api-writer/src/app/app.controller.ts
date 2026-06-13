@@ -248,6 +248,16 @@ export class AppController {
     return this.appService.listProjectImports(projectId);
   }
 
+  @Post('projects/:id/analysis/recompute')
+  @ApiTags('project-analysis')
+  @ApiOperation({ summary: 'Enqueue Project Gold recompute over processed AppsFlyer Silver events' })
+  recomputeProjectGold(
+    @Param('id') projectId: string,
+    @Body() payload: { source?: string; dateRangeStart?: string; dateRangeEnd?: string; force?: boolean },
+  ) {
+    return this.appService.recomputeProjectGold(projectId, payload);
+  }
+
   @Post('projects/:id/analysis-runs')
   @ApiTags('analysis-runs')
   @ApiOperation({ summary: 'Create a manual AI analysis run over already processed project data' })

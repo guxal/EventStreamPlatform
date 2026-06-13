@@ -16,6 +16,7 @@ import {
   SemanticEntityRepository,
   SemanticRelationshipRepository,
   ContextObjectRepository,
+  ProjectAnalysisRunRepository,
 } from '@metrics-platform/marketing-infrastructure';
 import type {
   AiOutputListFilters,
@@ -44,6 +45,7 @@ export class AppService {
     private readonly semanticRelationshipRepository: SemanticRelationshipRepository,
     private readonly contextObjectRepository: ContextObjectRepository,
     private readonly analysisRunRepository: AnalysisRunRepository,
+    private readonly projectAnalysisRunRepository: ProjectAnalysisRunRepository,
     private readonly aiQuestionAnsweringService: AiQuestionAnsweringService,
   ) {}
 
@@ -162,12 +164,30 @@ export class AppService {
     return this.appsFlyerEventsRepository.getBlockedTraffic(projectId);
   }
 
+  async getProjectAnalysisSummary(projectId: string, filters: { source?: string; dateRangeStart?: string; dateRangeEnd?: string } = {}) {
+    const run = await this.projectAnalysisRunRepository.getLatestCompleted(projectId, { source: filters.source ?? 'appsflyer', dateRangeStart: filters.dateRangeStart, dateRangeEnd: filters.dateRangeEnd });
+    if (!run) return { projectId, source: filters.source ?? 'appsflyer', status: 'NOT_COMPUTED', message: 'Project-level analysis has not been computed yet.', suggestedAction: 'Run recompute-project-gold.' };
+    const summary = (run.metadata?.summary ?? {}) as Record<string, unknown>;
+    return { ...summary, analysisRun: run };
+  }
+
+  async getProjectAnalysisFunnel(projectId: string, filters: { source?: string; dateRangeStart?: string; dateRangeEnd?: string } = {}) {
+    const summary = await this.getProjectAnalysisSummary(projectId, filters);
+    return { projectId, source: filters.source ?? 'appsflyer', periodFunnel: (summary as any).periodFunnel, cohortFunnel: (summary as any).cohortFunnel, dataAvailability: (summary as any).dataAvailability, status: (summary as any).status };
+  }
+
+  async getProjectAnalysisMediaSources(projectId: string, filters: { source?: string; dateRangeStart?: string; dateRangeEnd?: string } = {}) {
+    const summary = await this.getProjectAnalysisSummary(projectId, filters);
+    return { projectId, source: filters.source ?? 'appsflyer', mediaSourceQuality: (summary as any).mediaSourceQuality, status: (summary as any).status };
+  }
+
   async listProjectFacts(
     projectId: string,
     filters: {
       source?: string;
       reportType?: string;
       includeSemantic?: string;
+      scope?: string;
     } = {},
   ) {
     const facts = await this.detectedFactRepository.listByProject(

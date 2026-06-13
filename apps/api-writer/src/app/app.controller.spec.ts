@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CqrsModule, CommandBus } from '@nestjs/cqrs';
 import { EventProducerService } from '@metrics-platform/core-infrastructure';
 import { FileHubService } from '@metrics-platform/marketing-application';
-import { ObjectStorageService, ProjectRepository } from '@metrics-platform/marketing-infrastructure';
+import { ObjectStorageService, ProjectRepository, AnalysisRunRepository, DataImportRepository, ProjectAnalysisRunRepository, RawImportFileRepository } from '@metrics-platform/marketing-infrastructure';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -23,7 +23,7 @@ describe('AppController', () => {
         },
         {
           provide: EventProducerService,
-          useValue: { publishMarketingImport: jest.fn() },
+          useValue: { publishMarketingImport: jest.fn(), publishMarketingAnalysis: jest.fn(), publishProjectGoldRecompute: jest.fn().mockResolvedValue({ id: 'job_1' }) },
         },
         {
           provide: ObjectStorageService,
@@ -33,6 +33,10 @@ describe('AppController', () => {
           provide: ProjectRepository,
           useValue: { create: jest.fn(), list: jest.fn(), exists: jest.fn() },
         },
+        { provide: AnalysisRunRepository, useValue: { create: jest.fn() } },
+        { provide: ProjectAnalysisRunRepository, useValue: { create: jest.fn().mockImplementation(async (input) => input) } },
+        { provide: DataImportRepository, useValue: { findByProjectAndId: jest.fn() } },
+        { provide: RawImportFileRepository, useValue: { findByProjectAndId: jest.fn() } },
         {
           provide: FileHubService,
           useValue: {

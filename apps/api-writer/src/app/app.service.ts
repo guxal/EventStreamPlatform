@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { randomUUID } from 'crypto';
 import { EventProducerService } from '@metrics-platform/core-infrastructure';
-import { AnalysisRunRepository, DataImportRepository, ProjectRepository, RawImportFileRepository } from '@metrics-platform/marketing-infrastructure';
+import { AnalysisRunRepository, DataImportRepository, ProjectAnalysisRunRepository, ProjectRepository, RawImportFileRepository } from '@metrics-platform/marketing-infrastructure';
 import { FileHubService } from '@metrics-platform/marketing-application';
 import { ObjectStorageService } from '@metrics-platform/marketing-infrastructure';
 import { CreateEventCommand } from '@metrics-platform/core-application';
@@ -26,6 +26,7 @@ export class AppService {
     private readonly projectRepository: ProjectRepository,
     private readonly fileHubService: FileHubService,
     private readonly analysisRunRepository: AnalysisRunRepository,
+    private readonly projectAnalysisRunRepository: ProjectAnalysisRunRepository,
     private readonly dataImportRepository: DataImportRepository,
     private readonly rawImportFileRepository: RawImportFileRepository,
   ) {}
@@ -131,6 +132,17 @@ export class AppService {
 
   reprocessProjectFile(projectId: string, fileId: string) {
     return this.fileHubService.reprocessFile(projectId, fileId, 'api-writer');
+  }
+
+  async recomputeProjectGold(projectId: string, payload: { source?: string; dateRangeStart?: string; dateRangeEnd?: string; force?: boolean }) {
+    if (!(await this.projectRepository.exists(projectId))) throw new NotFoundException(`Project ${projectId} not found`);
+    const source = (payload.source ?? 'appsflyer').toLowerCase();
+    if (source !== 'appsflyer') throw new Error(`Unsupported project analysis source ${payload.source}`);
+    const analysisRunId = randomUUID();
+    const correlationId = randomUUID();
+    const run = await this.projectAnalysisRunRepository.create({ id: analysisRunId, projectId, source, dateRangeStart: payload.dateRangeStart ?? null, dateRangeEnd: payload.dateRangeEnd ?? null, status: 'PENDING', triggeredBy: 'manual', correlationId, metadata: { force: Boolean(payload.force) } });
+    const job = await this.eventProducerService.publishProjectGoldRecompute({ analysisRunId, projectId, source, dateRangeStart: payload.dateRangeStart ?? null, dateRangeEnd: payload.dateRangeEnd ?? null, triggeredBy: 'manual', correlationId, force: Boolean(payload.force) });
+    return { analysisRunId: run.id, status: run.status, jobId: job?.id, correlationId, job: { queue: 'project-analysis', name: 'recompute-project-gold' } };
   }
 
   async createAnalysisRun(projectId: string, payload: { source?: string; reportType?: string; importId?: string; rawFileId?: string; dateRange?: { from?: string; to?: string }; analysisType: AnalysisType; provider?: string; model?: string; forceRegenerate?: boolean }) {

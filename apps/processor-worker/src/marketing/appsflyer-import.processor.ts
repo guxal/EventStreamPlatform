@@ -1,9 +1,10 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import {
   AiOutputOrchestratorService,
   ContextBuilderService,
   SemanticBuilderService,
 } from '@metrics-platform/marketing-application';
+import { EventProducerService } from '@metrics-platform/core-infrastructure';
 import {
   ClickHouseMarketingRepository,
   DataImportRepository,
@@ -42,6 +43,8 @@ export enum AppsFlyerProcessingErrorStage {
 
 @Injectable()
 export class AppsFlyerImportProcessor implements OnModuleInit {
+  private readonly logger = new Logger(AppsFlyerImportProcessor.name);
+
   constructor(
     private readonly projectRepository: ProjectRepository,
     private readonly rawImportFileRepository: RawImportFileRepository,
@@ -55,6 +58,7 @@ export class AppsFlyerImportProcessor implements OnModuleInit {
     private readonly semanticBuilderService: SemanticBuilderService,
     private readonly contextBuilderService: ContextBuilderService,
     private readonly aiOutputOrchestrator: AiOutputOrchestratorService,
+    private readonly eventProducerService: EventProducerService,
   ) {}
 
   onModuleInit() {
@@ -393,6 +397,18 @@ export class AppsFlyerImportProcessor implements OnModuleInit {
         eventsProcessed: result.events.length,
         factsGenerated: result.facts.length,
         status: ImportStatus.COMPLETED,
+      });
+      await this.eventProducerService.publishProjectGoldRecompute({
+        projectId: payload.projectId,
+        source: 'appsflyer',
+        dateRangeStart: null,
+        dateRangeEnd: null,
+        triggeredBy: 'post_import',
+        correlationId: payload.correlationId,
+        force: false,
+      }).catch((error) => {
+        // Post-import project analysis is complementary; do not fail the successfully processed import if enqueueing is temporarily unavailable.
+        this.logger.warn({ event: 'PROJECT_GOLD_RECOMPUTE_ENQUEUE_FAILED', projectId: payload.projectId, correlationId: payload.correlationId, error: error instanceof Error ? error.message : String(error) });
       });
     } catch (error) {
       const errorStage = this.inferErrorStage(error);

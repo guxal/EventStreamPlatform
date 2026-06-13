@@ -11,7 +11,10 @@ import {
   SemanticEntityRepository,
   SemanticRelationshipRepository,
   ContextObjectRepository,
+  AnalysisRunRepository,
+  ProjectAnalysisRunRepository,
 } from '@metrics-platform/marketing-infrastructure';
+import { AiQuestionAnsweringService } from '@metrics-platform/marketing-application';
 import { AppService } from './app.service';
 
 describe('AppService', () => {
@@ -32,6 +35,9 @@ describe('AppService', () => {
         { provide: SemanticEntityRepository, useValue: { searchEntities: jest.fn().mockResolvedValue([]) } },
         { provide: SemanticRelationshipRepository, useValue: { searchRelationships: jest.fn().mockResolvedValue([]) } },
         { provide: ContextObjectRepository, useValue: { searchContextObjects: jest.fn().mockResolvedValue([]) } },
+        { provide: AnalysisRunRepository, useValue: { findByProject: jest.fn().mockResolvedValue([]), findById: jest.fn() } },
+        { provide: ProjectAnalysisRunRepository, useValue: { getLatestCompleted: jest.fn().mockResolvedValue(null) } },
+        { provide: AiQuestionAnsweringService, useValue: { answer: jest.fn() } },
       ],
     }).compile();
 

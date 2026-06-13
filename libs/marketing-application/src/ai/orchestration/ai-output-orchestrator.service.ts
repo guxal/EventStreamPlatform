@@ -276,6 +276,10 @@ export class AiOutputOrchestratorService {
     facts: DetectedFact[],
   ): Promise<void> {
     const scope = this.scopeFromFacts(facts);
+    if (this.isProjectScope(facts)) {
+      await this.recommendationRepository.deleteByScope(projectId, this.projectOutputScope(projectId, facts, scope.source));
+      return;
+    }
     if (!scope.importId && !scope.source && !scope.reportType) return;
     await this.recommendationRepository.deleteByScope(projectId, scope);
   }
@@ -285,8 +289,29 @@ export class AiOutputOrchestratorService {
     facts: DetectedFact[],
   ): Promise<void> {
     const scope = this.scopeFromFacts(facts);
+    if (this.isProjectScope(facts)) {
+      await this.aiReportRepository.deleteByScope(projectId, this.projectOutputScope(projectId, facts, scope.source));
+      return;
+    }
     if (!scope.importId && !scope.source && !scope.reportType) return;
     await this.aiReportRepository.deleteByScope(projectId, scope);
+  }
+
+  private isProjectScope(facts: DetectedFact[]): boolean {
+    return String(facts[0]?.metricsSummary?.scopeType ?? facts[0]?.scopeType ?? '').toUpperCase() === 'PROJECT';
+  }
+
+  private projectOutputScope(projectId: string, facts: DetectedFact[], source?: string) {
+    const fact = facts[0];
+    const dateRangeStart = fact?.dateRangeStart ?? (typeof fact?.metricsSummary?.dateRangeStart === 'string' ? fact.metricsSummary.dateRangeStart : null);
+    const dateRangeEnd = fact?.dateRangeEnd ?? (typeof fact?.metricsSummary?.dateRangeEnd === 'string' ? fact.metricsSummary.dateRangeEnd : null);
+    return {
+      source,
+      scopeType: 'PROJECT',
+      scopeId: String(fact?.metricsSummary?.scopeId ?? fact?.scopeId ?? projectId),
+      dateRangeStart,
+      dateRangeEnd,
+    };
   }
 
   private scopeFromFacts(facts: DetectedFact[]): {
@@ -400,6 +425,11 @@ export class AiOutputOrchestratorService {
       factType: fact?.factType,
       entityType: fact?.entityType,
       entityId: fact?.entityId,
+      scopeType: fact?.scopeType ?? fact?.metricsSummary?.scopeType,
+      scopeId: fact?.scopeId ?? fact?.metricsSummary?.scopeId,
+      analysisRunId: fact?.analysisRunId ?? fact?.metricsSummary?.analysisRunId,
+      dateRangeStart: fact?.dateRangeStart ?? fact?.metricsSummary?.dateRangeStart,
+      dateRangeEnd: fact?.dateRangeEnd ?? fact?.metricsSummary?.dateRangeEnd,
     };
   }
 
@@ -420,6 +450,11 @@ export class AiOutputOrchestratorService {
         new Set(facts.map((fact) => fact.entityId).filter(Boolean)),
       ),
       factTypes: facts.map((fact) => fact.factType),
+      scopeType: facts[0]?.scopeType ?? facts[0]?.metricsSummary?.scopeType,
+      scopeId: facts[0]?.scopeId ?? facts[0]?.metricsSummary?.scopeId,
+      analysisRunId: facts[0]?.analysisRunId ?? facts[0]?.metricsSummary?.analysisRunId,
+      dateRangeStart: facts[0]?.dateRangeStart ?? facts[0]?.metricsSummary?.dateRangeStart,
+      dateRangeEnd: facts[0]?.dateRangeEnd ?? facts[0]?.metricsSummary?.dateRangeEnd,
     };
   }
 

@@ -16,4 +16,11 @@ export type DetectedFact = {
   semanticEntityId?: string;
   relatedSemanticEntityIds?: string[];
   contextObjectIds?: string[];
+  scopeType?: 'IMPORT' | 'PROJECT';
+  scopeId?: string;
+  analysisRunId?: string;
+  source?: string;
+  reportType?: string | null;
+  dateRangeStart?: string | null;
+  dateRangeEnd?: string | null;
 };

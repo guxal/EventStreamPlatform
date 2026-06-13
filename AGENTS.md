@@ -345,9 +345,22 @@ Current completed processing is AppsFlyer CSV. The next milestone remains: uploa
 - API Reader exposes analysis run list/detail endpoints and controlled question endpoints under `/projects/:id/questions` plus `/projects/:id/ai-chat` compatibility.
 - Controlled questions use deterministic intent routing and bounded data functions over facts, KPIs, semantic entities/relationships, context objects, recommendations, reports, and generic source filters; no Text-to-SQL or raw CSV access is introduced.
 
+
+## Epic 15 Status (Completed) — Project Gold Engine / Project-Level Analysis
+- Project Gold recompute is implemented for AppsFlyer project-level analysis without changing Bronze/Silver import processing or rereading raw CSV files.
+- API Writer exposes `POST /projects/:id/analysis/recompute`, creating `project_analysis_runs` and enqueueing `recompute-project-gold` on the `project-analysis` queue.
+- Processor Worker consumes `project-analysis/recompute-project-gold`; successful AppsFlyer imports also enqueue a post-import project recompute.
+- Project Gold reads normalized ClickHouse Silver events from `marketing.marketing_events` and computes data availability, period funnel, cohort funnel, media-source quality, campaign metrics, and blocked traffic analysis.
+- Project-level metric snapshots, detected facts, recommendations, and AI reports use `scope_type=PROJECT`, `scope_id=project_id`, source/date-range metadata, and replace-by-scope idempotency.
+- Controlled questions and `/ai-chat` should prefer Project Gold context for general project questions when no `importId` is provided: project Gold summary first, then project facts/KPIs/reports, with import-level facts only as supporting evidence.
+- AI receives bounded project aggregates, not raw CSV/rows/payloads. Blocked traffic context is aggregate only: counts, accepted/blocked rates, top blocked/rejected reasons, top media-source distribution, and project facts.
+- If Project Gold has not been computed, controlled questions must say project-level analysis has not been computed yet and suggest running `recompute-project-gold`; do not infer project-level rates from isolated import facts.
+- AppsFlyer-only Project Gold still has no reliable cost source; AI must not claim ROAS/CPA/CAC/profitability until a reliable cost integration exists.
+- Documentation lives in `docs/PROJECT_GOLD_ENGINE.md` and `docs/PROJECT_AI_SUMMARY.md`; keep both docs and this AGENTS memory in sync when Project Gold behavior changes.
+
 ## Test UI Notes
 - A framework-free HTML/JavaScript test UI lives at `apps/admin/src/assets/atlas-ai-test-ui.html`.
 - When `apps/admin` is running, it is served from `/api/ui`; admin defaults to port `3002` so api-reader can keep `3000` and api-writer can keep `3001`.
 - The UI stores endpoint/project config in browser localStorage and calls only generic multi-source Writer/Reader endpoints.
-- The UI covers project setup, File Hub upload/list/detail/tag/process/reprocess/delete, AppsFlyer reader views, facts, recommendations, reports, analysis runs, process monitoring, controlled questions, and `/ai-chat` alias testing.
+- The UI covers project setup, File Hub upload/list/detail/tag/process/reprocess/delete, AppsFlyer reader views, Project Gold recompute/summary/funnel/media-source quality, project-scope facts/recommendations/reports, analysis runs, process monitoring, controlled questions, and `/ai-chat` alias testing.
 - The test UI includes a `Monitoreo jobs` tab for polling raw file status, import flow, process runs, analysis run detail, and AI outputs linked to an `analysisRunId`.

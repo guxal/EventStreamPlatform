@@ -22,3 +22,5 @@ export * from './repositories/semantic/semantic-relationship.repository';
 export * from './repositories/semantic/context-object.repository';
 
 export * from './repositories/ai/ai-debug-trace.repository';
+export * from './repositories/project-analysis/project-analysis-run.repository';
+export * from './repositories/project-analysis/clickhouse-project-analytics.repository';

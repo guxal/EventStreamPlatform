@@ -25,10 +25,16 @@ describe('AppController', () => {
     getAppsFlyerMediaSources: jest.fn(),
     getAppsFlyerCampaigns: jest.fn(),
     getAppsFlyerBlockedTraffic: jest.fn(),
+    getProjectAnalysisSummary: jest.fn(),
+    getProjectAnalysisFunnel: jest.fn(),
+    getProjectAnalysisMediaSources: jest.fn(),
     listContextObjects: jest.fn(),
     listSemanticRelationships: jest.fn(),
     listSemanticEntities: jest.fn(),
     askAiChat: jest.fn(),
+    askQuestion: jest.fn(),
+    listAnalysisRuns: jest.fn(),
+    getAnalysisRun: jest.fn(),
   };
 
   beforeAll(async () => {

@@ -13,6 +13,7 @@ import { AiQuestionAnsweringService, AiQuestionDataService, AiQuestionIntentRout
 import { FileHubService } from '../file-hub/file-hub.service';
 import { FileProfilerService } from '../file-hub/file-profiler.service';
 import { ReportClassifierService } from '../file-hub/report-classifier.service';
+import { AppsFlyerCohortFunnelCalculator, AppsFlyerMediaSourceQualityCalculator, AppsFlyerPeriodFunnelCalculator, AppsFlyerProjectGoldCalculator, ProjectAiSummaryOrchestratorService, ProjectFactsGeneratorService, ProjectGoldRecomputeService } from '../project-gold';
 import { AppsFlyerSemanticAdapter, ContextBuilderService, SemanticBuilderService } from '../semantic';
 
 @Module({
@@ -36,6 +37,13 @@ import { AppsFlyerSemanticAdapter, ContextBuilderService, SemanticBuilderService
     AppsFlyerSemanticAdapter,
     SemanticBuilderService,
     ContextBuilderService,
+    AppsFlyerPeriodFunnelCalculator,
+    AppsFlyerCohortFunnelCalculator,
+    AppsFlyerMediaSourceQualityCalculator,
+    AppsFlyerProjectGoldCalculator,
+    ProjectFactsGeneratorService,
+    ProjectAiSummaryOrchestratorService,
+    ProjectGoldRecomputeService,
   ],
   exports: [
     AiExplainerService,
@@ -56,6 +64,13 @@ import { AppsFlyerSemanticAdapter, ContextBuilderService, SemanticBuilderService
     ContextBuilderService,
     SemanticBuilderService,
     AppsFlyerSemanticAdapter,
+    AppsFlyerPeriodFunnelCalculator,
+    AppsFlyerCohortFunnelCalculator,
+    AppsFlyerMediaSourceQualityCalculator,
+    AppsFlyerProjectGoldCalculator,
+    ProjectFactsGeneratorService,
+    ProjectAiSummaryOrchestratorService,
+    ProjectGoldRecomputeService,
   ],
 })
 export class MarketingApplicationModule {}
