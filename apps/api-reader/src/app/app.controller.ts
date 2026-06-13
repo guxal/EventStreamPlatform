@@ -40,8 +40,13 @@ export class AppController {
   }
 
   @Get('projects/:id/entities/performance')
-  getEntitiesPerformance(@Param('id') projectId: string, @Query('source') source?: string) {
-    return this.appService.getEntitiesPerformance(projectId, { source });
+  getEntitiesPerformance(
+    @Param('id') projectId: string,
+    @Query('source') source?: string,
+    @Query('trafficScope') trafficScope?: 'valid' | 'blocked' | 'all',
+    @Query('includeBlocked') includeBlocked?: string,
+  ) {
+    return this.appService.getEntitiesPerformance(projectId, { source, trafficScope, includeBlocked });
   }
 
   @Get('projects/:id/events/by-name')
@@ -54,9 +59,11 @@ export class AppController {
     @Query('import_id') import_id?: string,
     @Query('reportType') reportType?: string,
     @Query('report_type') report_type?: string,
+    @Query('trafficScope') trafficScope?: 'valid' | 'blocked' | 'all',
+    @Query('includeBlocked') includeBlocked?: string,
   ) {
     if (source && source.toLowerCase() !== 'appsflyer') return [];
-    return this.appService.getAppsFlyerEventsByName(projectId, { from, to, importId: importId ?? import_id, reportType: reportType ?? report_type });
+    return this.appService.getAppsFlyerEventsByName(projectId, { from, to, importId: importId ?? import_id, reportType: reportType ?? report_type, trafficScope: trafficScope ?? (includeBlocked === 'true' ? 'all' : 'valid') });
   }
 
   @Get('projects/:id/traffic-quality/blocked')
@@ -65,6 +72,51 @@ export class AppController {
     return this.appService.getAppsFlyerBlockedTraffic(projectId);
   }
 
+
+
+  @Get('projects/:id/quality/media-sources')
+  getQualityMediaSources(
+    @Param('id') projectId: string,
+    @Query('source') source?: string,
+    @Query('dateRangeStart') dateRangeStart?: string,
+    @Query('dateRangeEnd') dateRangeEnd?: string,
+    @Query('trafficScope') trafficScope?: 'valid' | 'all',
+    @Query('limit') limit?: string,
+  ) {
+    return this.appService.getAppsFlyerMediaSourceQuality(projectId, { source, dateRangeStart, dateRangeEnd, trafficScope, limit });
+  }
+
+  @Get('projects/:id/quality/campaigns')
+  getQualityCampaigns(
+    @Param('id') projectId: string,
+    @Query('source') source?: string,
+    @Query('dateRangeStart') dateRangeStart?: string,
+    @Query('dateRangeEnd') dateRangeEnd?: string,
+    @Query('trafficScope') trafficScope?: 'valid' | 'all',
+    @Query('limit') limit?: string,
+  ) {
+    return this.appService.getAppsFlyerCampaignQuality(projectId, { source, dateRangeStart, dateRangeEnd, trafficScope, limit });
+  }
+
+  @Get('projects/:id/events/dictionary-coverage')
+  getEventDictionaryCoverage(
+    @Param('id') projectId: string,
+    @Query('source') source?: string,
+    @Query('dateRangeStart') dateRangeStart?: string,
+    @Query('dateRangeEnd') dateRangeEnd?: string,
+  ) {
+    return this.appService.getAppsFlyerEventDictionaryCoverage(projectId, { source, dateRangeStart, dateRangeEnd });
+  }
+
+  @Get('projects/:id/data-quality')
+  getDataQuality(
+    @Param('id') projectId: string,
+    @Query('source') source?: string,
+    @Query('dateRangeStart') dateRangeStart?: string,
+    @Query('dateRangeEnd') dateRangeEnd?: string,
+  ) {
+    return this.appService.getAppsFlyerDataQuality(projectId, { source, dateRangeStart, dateRangeEnd });
+  }
 
   @Get('projects/:id/analysis/summary')
   getProjectAnalysisSummary(
@@ -248,8 +300,10 @@ export class AppController {
     @Query('import_id') import_id?: string,
     @Query('reportType') reportType?: string,
     @Query('report_type') report_type?: string,
+    @Query('trafficScope') trafficScope?: 'valid' | 'blocked' | 'all',
+    @Query('includeBlocked') includeBlocked?: string,
   ) {
-    return this.appService.listSemanticEntities(projectId, { source, entityType: entityType ?? entity_type, canonicalName: canonicalName ?? canonical_name, importId: importId ?? import_id, reportType: reportType ?? report_type });
+    return this.appService.listSemanticEntities(projectId, { source, entityType: entityType ?? entity_type, canonicalName: canonicalName ?? canonical_name, importId: importId ?? import_id, reportType: reportType ?? report_type, trafficScope: trafficScope ?? (includeBlocked === 'true' ? 'all' : 'valid') });
   }
 
   @Get('projects/:id/semantic/relationships')
@@ -266,8 +320,10 @@ export class AppController {
     @Query('import_id') import_id?: string,
     @Query('reportType') reportType?: string,
     @Query('report_type') report_type?: string,
+    @Query('trafficScope') trafficScope?: 'valid' | 'blocked' | 'all',
+    @Query('includeBlocked') includeBlocked?: string,
   ) {
-    return this.appService.listSemanticRelationships(projectId, { source, relationshipType: relationshipType ?? relationship_type, sourceEntityId: sourceEntityId ?? source_entity_id, targetEntityId: targetEntityId ?? target_entity_id, importId: importId ?? import_id, reportType: reportType ?? report_type });
+    return this.appService.listSemanticRelationships(projectId, { source, relationshipType: relationshipType ?? relationship_type, sourceEntityId: sourceEntityId ?? source_entity_id, targetEntityId: targetEntityId ?? target_entity_id, importId: importId ?? import_id, reportType: reportType ?? report_type, trafficScope: trafficScope ?? (includeBlocked === 'true' ? 'all' : 'valid') });
   }
 
   @Get('projects/:id/context')

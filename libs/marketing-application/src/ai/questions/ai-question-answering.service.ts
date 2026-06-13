@@ -168,28 +168,32 @@ export class AiQuestionAnsweringService {
       return {
         projectGold: await this.dataService.getProjectGoldSummary(input),
         unavailableMetrics: await this.dataService.getUnavailableMetrics(input),
+      dataQualitySummary: await this.dataService.getDataQuality(input),
+      eventDictionaryCoverage: await this.dataService.getEventDictionaryCoverage(input),
         overview: await this.dataService.getProjectOverview(input),
       };
     if (intent === 'TOP_FACTS' || intent === 'DATA_QUALITY')
       return {
         facts: await this.dataService.getTopFacts(input),
+        dataQualitySummary: await this.dataService.getDataQuality(input),
+        eventDictionaryCoverage: await this.dataService.getEventDictionaryCoverage(input),
         contextObjects: await this.dataService.getContextObjects(input),
       };
     if (intent === 'MEDIA_SOURCE_PERFORMANCE')
       return {
         projectGold: await this.dataService.getProjectGoldSummary(input),
-        entityPerformance: await this.dataService.getEntityPerformance(input),
+        mediaSourceQualityRanking: await this.dataService.getEntityPerformance(input),
         unavailableMetrics: await this.dataService.getUnavailableMetrics(input),
       };
     if (intent === 'CAMPAIGN_PERFORMANCE')
       return {
-        campaigns: await this.dataService.getCampaignPerformance(input),
+        campaignQualityRanking: await this.dataService.getCampaignPerformance(input),
         unavailableMetrics: await this.dataService.getUnavailableMetrics(input),
       };
     if (intent === 'BLOCKED_TRAFFIC')
       return {
         projectGold: await this.dataService.getProjectGoldSummary(input),
-        blockedTraffic: await this.dataService.getBlockedTraffic(input),
+        trafficQualitySummary: await this.dataService.getBlockedTraffic(input),
       };
     if (intent === 'RECOMMENDATIONS')
       return {
@@ -205,6 +209,7 @@ export class AiQuestionAnsweringService {
     if (intent === 'EVENT_PERFORMANCE')
       return {
         eventsByName: await this.dataService.getEventsByName(input),
+        eventDictionaryCoverage: await this.dataService.getEventDictionaryCoverage(input),
         facts: await this.dataService.getTopFacts(input),
         unavailableMetrics: await this.dataService.getUnavailableMetrics(input),
       };

@@ -180,6 +180,18 @@
           <div id="dashboardSummary" class="metric-grid"></div>
           <h3>KPIs / métricas disponibles</h3>
           <div id="kpiCards" class="metric-grid"></div>
+          <h3>AppsFlyer analysis readiness</h3>
+          <div id="analysisReadinessCards" class="metric-grid"></div>
+          <div class="grid">
+            <div>
+              <h3>Top media sources</h3>
+              <div id="dashboardMediaSourceQuality" class="table-wrap"></div>
+            </div>
+            <div>
+              <h3>Data quality warnings</h3>
+              <div id="dashboardDataQuality" class="fact-list"></div>
+            </div>
+          </div>
           <h3>Facts recientes</h3>
           <div id="factsPreview" class="fact-list"></div>
           <h3>Recomendaciones y reportes recientes</h3>
@@ -218,6 +230,10 @@
             <button onclick="getReader('/projects/{projectId}/semantic/relationships?source={source}&reportType={reportType}&importId={importId}')">Relationships</button>
             <button onclick="getReader('/projects/{projectId}/context?source={source}&reportType={reportType}')">Context</button>
             <button onclick="getReader('/projects/{projectId}/traffic-quality/blocked?source={source}')">Blocked traffic</button>
+            <button onclick="getReader('/projects/{projectId}/quality/media-sources?source={source}&trafficScope=valid')">Media source quality</button>
+            <button onclick="getReader('/projects/{projectId}/quality/campaigns?source={source}&trafficScope=valid')">Campaign quality</button>
+            <button onclick="getReader('/projects/{projectId}/events/dictionary-coverage?source={source}')">Dictionary coverage</button>
+            <button onclick="getReader('/projects/{projectId}/data-quality?source={source}')">Data quality</button>
             <button onclick="getReader('/projects/{projectId}/analysis/summary?source={source}')">Project Gold summary</button>
             <button onclick="getReader('/projects/{projectId}/analysis/funnel?source={source}')">Project Gold funnel</button>
             <button onclick="getReader('/projects/{projectId}/analysis/media-sources?source={source}')">Project Gold media sources</button>
@@ -310,6 +326,17 @@
           <h2>Media source quality</h2>
           <p>Ranking determinístico. No es profitability ni ROAS porque AppsFlyer-only no trae costo confiable.</p>
           <div id="projectGoldMediaSources" class="table-wrap"></div>
+        </div>
+
+        <div class="card">
+          <h2>Campaign quality / dictionary / data quality</h2>
+          <p>Vistas determinísticas para validar antes de pasar a Google Ads.</p>
+          <h3>Campaign quality</h3>
+          <div id="projectGoldCampaignQuality" class="table-wrap"></div>
+          <h3>Dictionary coverage</h3>
+          <div id="projectGoldDictionaryCoverage" class="fact-list"></div>
+          <h3>Data quality</h3>
+          <div id="projectGoldDataQuality" class="fact-list"></div>
         </div>
 
         <div class="card">
@@ -610,7 +637,7 @@
       try {
         requiredProject();
         const [overview, facts, recommendations, reports, files] = await Promise.all([
-          fetchJson('reader', '/projects/{projectId}/overview?source={source}'),
+          fetchJson('reader', '/projects/{projectId}/dashboard'),
           fetchJson('reader', '/projects/{projectId}/facts?source={source}&reportType={reportType}'),
           fetchJson('reader', '/projects/{projectId}/recommendations?source={source}&reportType={reportType}&importId={importId}'),
           fetchJson('reader', '/projects/{projectId}/reports?source={source}&reportType={reportType}&importId={importId}'),
@@ -647,8 +674,54 @@
         ? kpiEntries.map(([label, value]) => metricCard(label, formatNumber(value))).join('')
         : '<div class="empty-state">Aún no hay KPIs procesados. Procesa un archivo READY_TO_PROCESS.</div>';
       const unavailable = overview.unavailableMetrics || totals.unavailableMetrics || [];
-      if (unavailable.length) $('kpiCards').innerHTML += metricCard('Unavailable', unavailable.length, unavailable.join(', '));
+      if (unavailable.length) $('kpiCards').innerHTML += metricCard('Unavailable', unavailable.length, unavailable.map(describeUnavailable).join(' · '));
+      renderAnalysisReadiness(overview);
       renderFactsPreview(facts);
+    }
+    function describeUnavailable(item) {
+      if (typeof item === 'string') return item;
+      if (!item || typeof item !== 'object') return String(item ?? 'n/a');
+      return [item.label || item.metric || 'Unavailable', item.status, item.reason].filter(Boolean).join(': ');
+    }
+    function renderAnalysisReadiness(overview) {
+      const traffic = overview.trafficQualitySummary || overview.appsFlyer || {};
+      const dictionary = overview.eventDictionaryCoverage || overview.appsFlyer?.eventDictionaryCoverage || {};
+      const dataQuality = overview.dataQualitySummary || overview.appsFlyer?.dataQualitySummary || {};
+      const mediaRows = asArray(overview.mediaSourceQualityRanking || overview.appsFlyer?.mediaSourceQualityRanking);
+      $('analysisReadinessCards').innerHTML = [
+        metricCard('Raw events', formatNumber(traffic.totalRawEvents ?? overview.appsFlyer?.totalRawEvents), 'valid + blocked'),
+        metricCard('Valid events', formatNumber(traffic.totalValidEvents ?? overview.appsFlyer?.totalValidEvents), 'performance scope'),
+        metricCard('Blocked events', formatNumber(traffic.totalBlockedEvents ?? overview.appsFlyer?.totalBlockedEvents), `rate ${formatPercent(traffic.blockedRate ?? overview.appsFlyer?.blockedRate)}`),
+        metricCard('Dictionary coverage', formatPercent(dictionary.mappingCoverageByEventCount), `${formatNumber(dictionary.unknownEventsCount)} unknown events`),
+        metricCard('Data quality', dataQuality.summary?.status || 'n/a', `${dataQuality.summary?.warnings ?? 0} warnings`),
+        metricCard('Reliable cost source', 'missing', 'ROAS/CPA/CAC unavailable'),
+      ].join('');
+      renderMiniQualityTable('dashboardMediaSourceQuality', mediaRows);
+      renderDataQuality(dataQuality, 'dashboardDataQuality');
+    }
+    function renderMiniQualityTable(id, rows) {
+      if (!rows.length) { $(id).innerHTML = '<div class="empty-state">Sin ranking todavía.</div>'; return; }
+      $(id).innerHTML = `<table class="data-table"><thead><tr><th>#</th><th>Source</th><th>Score</th><th>Valid</th><th>Blocked</th></tr></thead><tbody>${rows.slice(0, 8).map((row) => `<tr><td>${escapeHtml(row.rank || '')}</td><td>${escapeHtml(row.mediaSource || row.campaignName || 'unknown')}</td><td>${formatNumber(row.qualityScore ?? row.score)}</td><td>${formatNumber(row.validEvents ?? row.eventVolume)}</td><td>${formatNumber(row.blockedEvents)}</td></tr>`).join('')}</tbody></table>`;
+    }
+    function renderCampaignQualityTable(rows) {
+      if (!rows.length) { $('projectGoldCampaignQuality').innerHTML = '<div class="empty-state">Sin campaign quality todavía.</div>'; return; }
+      $('projectGoldCampaignQuality').innerHTML = `<table class="data-table"><thead><tr><th>#</th><th>Campaign</th><th>Media source</th><th>Score</th><th>Valid</th><th>Blocked rate</th><th>Flags / reasons</th></tr></thead><tbody>${rows.slice(0, 25).map((row) => `<tr><td>${escapeHtml(row.rank || '')}</td><td>${escapeHtml(row.campaignName || 'unknown')}</td><td>${escapeHtml(row.mediaSource || 'unknown')}</td><td>${formatNumber(row.qualityScore ?? row.score)}</td><td>${formatNumber(row.validEvents)}</td><td>${formatPercent(row.blockedRate)}</td><td>${escapeHtml((row.reasons || []).join(' · ') || [row.hasInvalidMacros && 'invalid macros', row.hasUnknownCampaign && 'unknown campaign', row.hasMissingCampaignId && 'missing campaign id'].filter(Boolean).join(' · '))}</td></tr>`).join('')}</tbody></table>`;
+    }
+    function renderDictionaryCoverage(coverage) {
+      const top = coverage.topUnknownEvents || [];
+      $('projectGoldDictionaryCoverage').innerHTML = [
+        `<div class="fact-card"><strong>Coverage by event count</strong><p>${escapeHtml(formatPercent(coverage.mappingCoverageByEventCount))} · ${escapeHtml(formatNumber(coverage.unknownEventsCount))} unknown events</p></div>`,
+        `<div class="fact-card"><strong>Coverage by event name</strong><p>${escapeHtml(formatPercent(coverage.mappingCoverageByEventName))} · ${escapeHtml(formatNumber(coverage.unknownEventNames))} unknown names</p></div>`,
+        ...top.slice(0, 8).map((event) => `<div class="fact-card"><strong>${escapeHtml(event.eventName)}</strong><p>${escapeHtml(formatNumber(event.count))} rows · users ${escapeHtml(formatNumber(event.uniqueUsers))} · suggested: ${escapeHtml(event.suggestedCanonicalEvent || 'REVIEW_REQUIRED')}</p></div>`),
+      ].join('') || '<div class="empty-state">Sin dictionary coverage.</div>';
+    }
+    function renderDataQuality(dataQuality, id = 'projectGoldDataQuality') {
+      const issues = dataQuality.issues || [];
+      if (!Object.keys(dataQuality || {}).length) { $(id).innerHTML = '<div class="empty-state">Sin data quality todavía.</div>'; return; }
+      $(id).innerHTML = [
+        `<div class="fact-card"><strong>Status: ${escapeHtml(dataQuality.summary?.status || 'n/a')}</strong><p>Score ${escapeHtml(formatNumber(dataQuality.summary?.score))} · warnings ${escapeHtml(formatNumber(dataQuality.summary?.warnings))}</p></div>`,
+        ...issues.slice(0, 8).map((issue) => `<div class="fact-card"><strong>${escapeHtml(issue.code || 'ISSUE')} <span class="pill">${escapeHtml(issue.severity || 'info')}</span></strong><p>${escapeHtml(issue.message || '')}</p></div>`),
+      ].join('');
     }
     function renderFactsPreview(facts) {
       const container = $('factsPreview');
@@ -937,15 +1010,19 @@
         requiredProject();
         saveConfig();
         const query = projectGoldQuery();
-        const [summary, funnel, mediaSources, facts, recommendations, reports] = await Promise.all([
+        const [summary, funnel, mediaSources, mediaSourceQuality, campaignQuality, dictionaryCoverage, dataQuality, facts, recommendations, reports] = await Promise.all([
           fetchJson('reader', '/projects/{projectId}/analysis/summary' + query),
           fetchJson('reader', '/projects/{projectId}/analysis/funnel' + query),
           fetchJson('reader', '/projects/{projectId}/analysis/media-sources' + query),
+          fetchJson('reader', '/projects/{projectId}/quality/media-sources' + query + '&trafficScope=valid&limit=25'),
+          fetchJson('reader', '/projects/{projectId}/quality/campaigns' + query + '&trafficScope=valid&limit=25'),
+          fetchJson('reader', '/projects/{projectId}/events/dictionary-coverage' + query),
+          fetchJson('reader', '/projects/{projectId}/data-quality' + query),
           fetchJson('reader', '/projects/{projectId}/facts?scope=PROJECT&source=' + encodeURIComponent(projectGoldSource())),
           fetchJson('reader', '/projects/{projectId}/recommendations?scope=PROJECT&source=' + encodeURIComponent(projectGoldSource())),
           fetchJson('reader', '/projects/{projectId}/reports?scope=PROJECT&source=' + encodeURIComponent(projectGoldSource())),
         ]);
-        const result = { summary, funnel, mediaSources, facts, recommendations, reports };
+        const result = { summary, funnel, mediaSources, mediaSourceQuality, campaignQuality, dictionaryCoverage, dataQuality, facts, recommendations, reports };
         renderProjectGold(result);
         if (showRaw) showOutput({ projectGoldLoadedAt: new Date().toISOString(), ...result });
       } catch(e) { showError(e); }
@@ -953,7 +1030,7 @@
     function renderProjectGold(result) {
       const summary = result.summary?.body || {};
       const funnel = result.funnel?.body || {};
-      const media = result.mediaSources?.body?.mediaSourceQuality || summary.mediaSourceQuality || {};
+      const media = { rows: asArray(result.mediaSourceQuality?.body).length ? asArray(result.mediaSourceQuality?.body) : (result.mediaSources?.body?.mediaSourceQuality?.rows || summary.mediaSourceQuality?.rows || []) };
       const facts = asArray(result.facts?.body);
       const recommendations = asArray(result.recommendations?.body);
       const reports = asArray(result.reports?.body);
@@ -997,6 +1074,9 @@
         metricCard('Blocked event rate', formatPercent(blocked.blockedEventRate), `${formatNumber(blocked.blockedInAppEvents)} blocked in-app events`),
       ].join('');
       renderMediaSourceTable(media.rows || []);
+      renderCampaignQualityTable(asArray(result.campaignQuality?.body));
+      renderDictionaryCoverage(result.dictionaryCoverage?.body || summary.eventDictionaryCoverage || {});
+      renderDataQuality(result.dataQuality?.body || summary.dataQualitySummary || {});
       $('projectGoldFacts').innerHTML = [
         `<div class="fact-card"><strong>Project facts</strong><p>${facts.length} facts · ${recommendations.length} recommendations · ${reports.length} reports</p></div>`,
         ...facts.slice(0, 8).map((fact) => `<div class="fact-card"><strong>${escapeHtml(fact.factType || fact.fact_type)} <span class="pill">${escapeHtml(fact.severity || 'INFO')}</span></strong><p>${escapeHtml(fact.recommendationHint || fact.recommendation_hint || '')}</p></div>`),
