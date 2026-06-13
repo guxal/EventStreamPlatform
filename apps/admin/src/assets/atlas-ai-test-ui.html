@@ -68,6 +68,17 @@
     .ai-card { background:#081120; border:1px solid var(--line); border-radius:14px; padding:14px; display:grid; gap:8px; }
     .ai-card h4 { margin:0; font-size:15px; color:var(--text); }
     .ai-card .body { color:#dbeafe; line-height:1.45; }
+    .markdown-card { background:#050914; border:1px solid rgba(125,211,252,.22); border-radius:12px; padding:12px; color:#dbeafe; line-height:1.55; overflow:auto; }
+    .markdown-card h1,.markdown-card h2,.markdown-card h3 { margin:12px 0 6px; color:#e0f2fe; }
+    .markdown-card h1 { font-size:20px; }
+    .markdown-card h2 { font-size:17px; }
+    .markdown-card h3 { font-size:15px; }
+    .markdown-card p { color:#dbeafe; margin:8px 0; }
+    .markdown-card ul,.markdown-card ol { margin:8px 0; padding-left:22px; }
+    .markdown-card li { margin:4px 0; }
+    .markdown-card code { background:#111827; border:1px solid var(--line); border-radius:6px; padding:1px 5px; color:#bae6fd; }
+    .markdown-card pre { max-height:none; margin:8px 0; }
+    .markdown-card blockquote { border-left:3px solid var(--accent); margin:8px 0; padding-left:10px; color:var(--muted); }
     .mini-list { display:grid; gap:5px; margin:0; padding:0; list-style:none; }
     .mini-list li { color:var(--muted); font-size:12px; border-top:1px solid rgba(38,54,84,.55); padding-top:5px; }
     .event-bars { display:grid; gap:6px; }
@@ -109,9 +120,9 @@
         </div>
         <div class="grid">
           <div><label>Source</label><select id="source"><option value="appsflyer">AppsFlyer</option><option value="google_ads">Google Ads</option><option value="meta_ads">Meta Ads</option><option value="">Todos / sin filtro</option></select></div>
-          <div><label>Report type rápido</label><select id="reportTypeSelect" onchange="onReportTypeSelectChange()"><option value="non_organic_in_app_events">Non-organic in-app events</option><option value="in_app_events">In-app events</option><option value="installs">Installs</option><option value="postbacks">Postbacks</option><option value="conversions">Conversions</option><option value="blocked_in_app_events">Blocked in-app events</option><option value="blocked_installs">Blocked installs</option><option value="blocked_clicks">Blocked clicks</option><option value="ad_revenue">Ad revenue</option><option value="uninstalls">Uninstalls</option><option value="">Todos / sin filtro</option><option value="custom">Custom…</option></select></div>
+          <div><label>Report type rápido</label><select id="reportTypeSelect" onchange="onReportTypeSelectChange()"><option value="">Todos / sin filtro</option><option value="non_organic_in_app_events">Non-organic in-app events</option><option value="in_app_events">In-app events</option><option value="installs">Installs</option><option value="postbacks">Postbacks</option><option value="conversions">Conversions</option><option value="blocked_in_app_events">Blocked in-app events</option><option value="blocked_installs">Blocked installs</option><option value="blocked_clicks">Blocked clicks</option><option value="ad_revenue">Ad revenue</option><option value="uninstalls">Uninstalls</option><option value="custom">Custom…</option></select></div>
         </div>
-        <label>Report type efectivo</label><input id="reportType" value="non_organic_in_app_events" placeholder="editable; vacío = sin filtro" oninput="syncReportTypeSelect()" />
+        <label>Report type efectivo</label><input id="reportType" value="" placeholder="editable; vacío = sin filtro" oninput="syncReportTypeSelect()" />
         <div class="grid">
           <div><label>Import ID</label><input id="importId" placeholder="opcional" /></div>
           <div><label>Raw File ID</label><input id="rawFileId" placeholder="opcional" /></div>
@@ -208,7 +219,7 @@
           <div class="section-head">
             <div>
               <h2>AI outputs</h2>
-              <p>Vista legible de recomendaciones/reportes con prioridad, provider, estado, limitaciones y resumen.</p>
+              <p>Vista legible de recomendaciones y reportes. Los reportes se renderizan como Markdown porque el contenido de AI llega en ese formato.</p>
             </div>
             <button class="small secondary" onclick="refreshAiOutputs()">Refrescar vista</button>
           </div>
@@ -645,15 +656,8 @@
         const body = await request('writer', path, { method:'GET' });
         const files = await enrichFilesWithEventStats(asArray(body));
         renderFileCards(files);
-        const first = files[0];
-        if (first?.id && !$('rawFileId').value.trim()) {
-          $('rawFileId').value = first.id;
-          if (first.reportType) $('reportType').value = first.reportType;
-          if (first.source) $('source').value = String(first.source).toLowerCase();
-          if (fileImportId(first)) $('importId').value = fileImportId(first);
-          saveConfig();
-          renderFileCards(files);
-        }
+        // No autoseleccionamos el primer archivo: entrar a File Hub o refrescar el listado
+        // no debe cambiar filtros ni poblar IDs opcionales sin una acción explícita del usuario.
       } catch(e) { showError(e); }
     }
     async function enrichFilesWithEventStats(files) {
@@ -765,11 +769,57 @@
       return `<article class="ai-card">
         <div><span class="pill">${escapeHtml(status)}</span><span class="pill">${escapeHtml(provider)}</span></div>
         <h4>${escapeHtml(title)}</h4>
-        <div class="body">${escapeHtml(summary || 'Sin resumen del reporte.')}</div>
-        ${renderMiniList('Secciones / hallazgos', sections)}
+        <div class="markdown-card">${renderMarkdown(summary || 'Sin resumen del reporte.')}</div>
+        ${renderMarkdownSections(sections)}
         ${renderMiniList('Limitaciones', limitations)}
       </article>`;
     }
+
+    function renderMarkdownSections(values) {
+      const array = Array.isArray(values) ? values : (values ? [values] : []);
+      if (!array.length) return '';
+      const markdown = array.slice(0, 4).map((value) => (typeof value === 'string' ? value : JSON.stringify(value, null, 2))).join('\n\n');
+      return `<div><p class="muted">Secciones / hallazgos</p><div class="markdown-card">${renderMarkdown(markdown)}</div></div>`;
+    }
+    function renderMarkdown(value) {
+      const text = String(value ?? '').replace(/\r\n/g, '\n').trim();
+      if (!text) return '';
+      const lines = text.split('\n');
+      const html = [];
+      let listType = null;
+      let inCode = false;
+      const closeList = () => { if (listType) { html.push(`</${listType}>`); listType = null; } };
+      const inline = (raw) => escapeHtml(raw)
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/__([^_]+)__/g, '<strong>$1</strong>')
+        .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+        .replace(/_([^_]+)_/g, '<em>$1</em>');
+      for (const line of lines) {
+        if (/^```/.test(line.trim())) {
+          closeList();
+          html.push(inCode ? '</code></pre>' : '<pre><code>');
+          inCode = !inCode;
+          continue;
+        }
+        if (inCode) { html.push(escapeHtml(line) + '\n'); continue; }
+        if (!line.trim()) { closeList(); continue; }
+        const heading = line.match(/^(#{1,3})\s+(.+)$/);
+        if (heading) { closeList(); html.push(`<h${heading[1].length}>${inline(heading[2])}</h${heading[1].length}>`); continue; }
+        const bullet = line.match(/^[-*]\s+(.+)$/);
+        if (bullet) { if (listType !== 'ul') { closeList(); html.push('<ul>'); listType = 'ul'; } html.push(`<li>${inline(bullet[1])}</li>`); continue; }
+        const ordered = line.match(/^\d+[.)]\s+(.+)$/);
+        if (ordered) { if (listType !== 'ol') { closeList(); html.push('<ol>'); listType = 'ol'; } html.push(`<li>${inline(ordered[1])}</li>`); continue; }
+        const quote = line.match(/^>\s?(.+)$/);
+        if (quote) { closeList(); html.push(`<blockquote>${inline(quote[1])}</blockquote>`); continue; }
+        closeList();
+        html.push(`<p>${inline(line)}</p>`);
+      }
+      closeList();
+      if (inCode) html.push('</code></pre>');
+      return html.join('');
+    }
+
     function renderMiniList(label, values) {
       const array = Array.isArray(values) ? values : (values ? [values] : []);
       if (!array.length) return '';
