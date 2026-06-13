@@ -64,6 +64,32 @@
     .tabs button.active { background:#0e7490; border-color:#22d3ee; }
     .hidden { display:none; }
     .copy { width:auto; padding:6px 10px; margin:0; float:right; }
+    .config-card { background:rgba(15,23,42,.72); border:1px solid var(--line); border-radius:12px; padding:12px; margin-top:10px; }
+    .summary-strip { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+    .summary-chip { background:#0b1222; border:1px solid var(--line); border-radius:10px; padding:8px; }
+    .summary-chip span { display:block; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+    .summary-chip strong { display:block; margin-top:4px; font-size:16px; }
+    .ai-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:12px; }
+    .ai-card { background:#081120; border:1px solid var(--line); border-radius:14px; padding:14px; display:grid; gap:8px; }
+    .ai-card h4 { margin:0; font-size:15px; color:var(--text); }
+    .ai-card .body { color:#dbeafe; line-height:1.45; }
+    .markdown-card { background:#050914; border:1px solid rgba(125,211,252,.22); border-radius:12px; padding:12px; color:#dbeafe; line-height:1.55; overflow:auto; }
+    .markdown-card h1,.markdown-card h2,.markdown-card h3 { margin:12px 0 6px; color:#e0f2fe; }
+    .markdown-card h1 { font-size:20px; }
+    .markdown-card h2 { font-size:17px; }
+    .markdown-card h3 { font-size:15px; }
+    .markdown-card p { color:#dbeafe; margin:8px 0; }
+    .markdown-card ul,.markdown-card ol { margin:8px 0; padding-left:22px; }
+    .markdown-card li { margin:4px 0; }
+    .markdown-card code { background:#111827; border:1px solid var(--line); border-radius:6px; padding:1px 5px; color:#bae6fd; }
+    .markdown-card pre { max-height:none; margin:8px 0; }
+    .markdown-card blockquote { border-left:3px solid var(--accent); margin:8px 0; padding-left:10px; color:var(--muted); }
+    .mini-list { display:grid; gap:5px; margin:0; padding:0; list-style:none; }
+    .mini-list li { color:var(--muted); font-size:12px; border-top:1px solid rgba(38,54,84,.55); padding-top:5px; }
+    .event-bars { display:grid; gap:6px; }
+    .event-bar { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:center; color:var(--muted); font-size:12px; }
+    .event-bar-track { grid-column:1 / -1; height:6px; background:#111827; border-radius:999px; overflow:hidden; }
+    .event-bar-fill { height:100%; background:linear-gradient(90deg,#22d3ee,#818cf8); border-radius:999px; }
     @media (max-width: 1100px) { .metric-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     @media (max-width: 960px) { main { grid-template-columns:1fr; } header { position:static; } }
     @media (max-width: 560px) { .grid,.metric-grid { grid-template-columns:1fr; } }
@@ -84,12 +110,24 @@
         <input id="writerBase" value="http://localhost:3001/api" />
         <label>Reader API base</label>
         <input id="readerBase" value="http://localhost:3000/api" />
-        <label>Project ID</label>
-        <input id="projectId" placeholder="uuid del proyecto" />
-        <div class="grid">
-          <div><label>Source</label><input id="source" value="appsflyer" /></div>
-          <div><label>Report type</label><input id="reportType" value="non_organic_in_app_events" /></div>
+        <div class="config-card">
+          <div class="section-head">
+            <div>
+              <h3>Proyecto activo</h3>
+              <p>Selecciona un proyecto guardado o pega el UUID manualmente.</p>
+            </div>
+            <button class="small secondary" onclick="listProjects()">Cargar</button>
+          </div>
+          <label>Selector de proyecto</label>
+          <select id="projectSelect" onchange="selectProjectFromDropdown()"><option value="">Cargar/listar proyectos…</option></select>
+          <label>Project ID</label>
+          <input id="projectId" placeholder="uuid del proyecto" onchange="saveConfig()" />
         </div>
+        <div class="grid">
+          <div><label>Source</label><select id="source"><option value="appsflyer">AppsFlyer</option><option value="google_ads">Google Ads</option><option value="meta_ads">Meta Ads</option><option value="">Todos / sin filtro</option></select></div>
+          <div><label>Report type rápido</label><select id="reportTypeSelect" onchange="onReportTypeSelectChange()"><option value="">Todos / sin filtro</option><option value="non_organic_in_app_events">Non-organic in-app events</option><option value="in_app_events">In-app events</option><option value="installs">Installs</option><option value="postbacks">Postbacks</option><option value="conversions">Conversions</option><option value="blocked_in_app_events">Blocked in-app events</option><option value="blocked_installs">Blocked installs</option><option value="blocked_clicks">Blocked clicks</option><option value="ad_revenue">Ad revenue</option><option value="uninstalls">Uninstalls</option><option value="custom">Custom…</option></select></div>
+        </div>
+        <label>Report type efectivo</label><input id="reportType" value="" placeholder="editable; vacío = sin filtro" oninput="syncReportTypeSelect()" />
         <div class="grid">
           <div><label>Import ID</label><input id="importId" placeholder="opcional" /></div>
           <div><label>Raw File ID</label><input id="rawFileId" placeholder="opcional" /></div>
@@ -144,6 +182,8 @@
           <div id="kpiCards" class="metric-grid"></div>
           <h3>Facts recientes</h3>
           <div id="factsPreview" class="fact-list"></div>
+          <h3>Recomendaciones y reportes recientes</h3>
+          <div id="dashboardAiOutputs" class="ai-grid"></div>
         </div>
       </div>
 
@@ -160,6 +200,7 @@
             <div><label>Status filter</label><select id="fileStatusFilter"><option value="">Todos</option><option>UPLOADED</option><option>PROFILING</option><option>PROFILED</option><option>READY_TO_PROCESS</option><option>NEEDS_REVIEW</option><option>PROCESSING</option><option>COMPLETED</option><option>FAILED</option></select></div>
             <div><label>Acción rápida</label><button class="secondary" onclick="listFiles()">Aplicar filtros</button></div>
           </div>
+          <div id="fileSummary" class="summary-strip"></div>
           <div id="fileCards" class="file-grid"></div>
         </div>
       </div>
@@ -184,15 +225,27 @@
           </div>
         </div>
         <div class="card">
-          <h2>AI outputs</h2>
+          <div class="section-head">
+            <div>
+              <h2>AI outputs</h2>
+              <p>Vista legible de recomendaciones y reportes. Los reportes se renderizan como Markdown porque el contenido de AI llega en ese formato.</p>
+            </div>
+            <button class="small secondary" onclick="refreshAiOutputs()">Refrescar vista</button>
+          </div>
           <div class="grid">
             <button onclick="getReader('/projects/{projectId}/recommendations?source={source}&reportType={reportType}&importId={importId}')">Recommendations</button>
             <button onclick="getReader('/projects/{projectId}/reports?source={source}&reportType={reportType}&importId={importId}')">Reports</button>
             <button onclick="getReader('/projects/{projectId}/facts?scope=PROJECT&source={source}')">Project facts</button>
             <button onclick="getReader('/projects/{projectId}/recommendations?scope=PROJECT&source={source}')">Project recommendations</button>
             <button onclick="getReader('/projects/{projectId}/reports?scope=PROJECT&source={source}')">Project reports</button>
+            <button onclick="loadRecommendations()">Ver Recommendations</button>
+            <button onclick="loadReports()">Ver Reports</button>
             <button onclick="getReader('/projects/{projectId}/analysis-runs?source={source}&reportType={reportType}&importId={importId}')">Analysis runs</button>
           </div>
+          <h3>Recomendaciones</h3>
+          <div id="recommendationCards" class="ai-grid"></div>
+          <h3>Reportes</h3>
+          <div id="reportCards" class="ai-grid"></div>
         </div>
       </div>
 
@@ -345,14 +398,35 @@
 
     function loadConfig() {
       const saved = JSON.parse(localStorage.getItem('atlasTestUi') || '{}');
-      fields.forEach((id) => { if ($(id) && saved[id]) $(id).value = saved[id]; });
-      if ($('projectGoldSource') && !$('projectGoldSource').value.trim()) $('projectGoldSource').value = $('source').value.trim() || 'appsflyer';
+      fields.forEach((id) => { if (saved[id] !== undefined && $(id)) $(id).value = saved[id]; });
+      syncReportTypeSelect();
+      syncProjectSelect();
       setStatus('Config cargada', 'ok');
     }
     function saveConfig() {
-      const data = Object.fromEntries(fields.filter((id) => $(id)).map((id) => [id, $(id).value.trim()]));
+      const data = Object.fromEntries(fields.map((id) => [id, ($(id)?.value || '').trim()]));
       localStorage.setItem('atlasTestUi', JSON.stringify(data));
+      syncReportTypeSelect();
+      syncProjectSelect();
       setStatus('Config guardada', 'ok');
+    }
+    function onReportTypeSelectChange() {
+      const selected = $('reportTypeSelect').value;
+      if (selected !== 'custom') $('reportType').value = selected;
+      saveConfig();
+    }
+    function syncReportTypeSelect() {
+      const select = $('reportTypeSelect');
+      if (!select) return;
+      const value = $('reportType').value.trim();
+      const hasOption = [...select.options].some((option) => option.value === value);
+      select.value = hasOption ? value : 'custom';
+    }
+    function syncProjectSelect() {
+      const select = $('projectSelect');
+      if (!select) return;
+      const value = $('projectId').value.trim();
+      if ([...select.options].some((option) => option.value === value)) select.value = value;
     }
     function cfg() {
       return Object.fromEntries(fields.filter((id) => $(id)).map((id) => [id, $(id).value.trim()]));
@@ -413,7 +487,7 @@
     function escapeHtml(value) {
       return String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[char]));
     }
-    function asArray(body, keys = ['data','files','items','results']) {
+    function asArray(body, keys = ['data','files','items','results','recommendations','reports','facts','runs']) {
       if (Array.isArray(body)) return body;
       if (!body || typeof body !== 'object') return [];
       for (const key of keys) if (Array.isArray(body[key])) return body[key];
@@ -436,12 +510,17 @@
     function fileSource(file) { return file.source || file.tags?.source || file.classification?.source || 'unknown'; }
     function fileReportType(file) { return file.reportType || file.report_type || file.tags?.report_type || file.tags?.reportType || file.classification?.reportType || 'unknown'; }
     function fileImportId(file) { return file.dataImportId || file.data_import_id || file.importId || file.import_id || ''; }
+    function fileRowCount(file) { return file.rowCount ?? file.row_count ?? file.profile?.rowCount ?? file.profile?.row_count ?? null; }
+    function fileChecksum(file) { return file.checksum || file.checksumSha256 || file.checksum_sha256 || ''; }
+    function eventCountFromRows(rows) { return rows.reduce((sum, row) => sum + Number(row.count ?? row.events ?? row.totalEvents ?? 0), 0); }
+    function uniqueUsersFromRows(rows) { return rows.reduce((sum, row) => sum + Number(row.uniqueUsers ?? row.unique_users ?? 0), 0); }
     function metricCard(label, value, hint = '') {
       return `<div class="metric-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${hint ? `<p>${escapeHtml(hint)}</p>` : ''}</div>`;
     }
     function renderFileCards(files) {
       const container = $('fileCards');
       if (!container) return;
+      renderFileSummary(files);
       if (!files.length) {
         container.innerHTML = '<div class="empty-state">No hay archivos para los filtros actuales. Sube un CSV o cambia los filtros.</div>';
         return;
@@ -454,17 +533,35 @@
         const source = String(fileSource(file)).toLowerCase();
         const reportType = fileReportType(file);
         const createdAt = file.createdAt || file.created_at || file.uploadedAt || file.uploaded_at || '';
+        const updatedAt = file.updatedAt || file.updated_at || '';
         const size = file.sizeBytes || file.size_bytes || file.fileSizeBytes || file.file_size_bytes;
+        const rowCount = fileRowCount(file);
+        const eventStats = file.__eventStats || {};
+        const totalEvents = eventStats.totalEvents ?? file.totalEvents ?? file.total_events ?? null;
+        const uniqueUsers = eventStats.uniqueUsers ?? file.uniqueUsers ?? file.unique_users ?? null;
+        const confidence = file.classificationConfidence ?? file.classification_confidence ?? null;
+        const checksum = fileChecksum(file);
         const processDisabled = status !== 'READY_TO_PROCESS' ? 'disabled title="Solo READY_TO_PROCESS se puede procesar"' : '';
         const reprocessDisabled = ['UPLOADED','PROFILING','PROFILED','NEEDS_REVIEW'].includes(status) ? 'disabled title="Reprocesa cuando ya existe/stuck/falló/completó un proceso"' : '';
+        const topEvents = (eventStats.topEvents || []).slice(0, 4);
         return `<article class="file-card ${selected === id ? 'active' : ''}">
           <div class="file-title" title="${escapeHtml(fileName(file))}">${escapeHtml(fileName(file))}</div>
           <div><span class="pill status-${escapeHtml(status)}">${escapeHtml(status)}</span><span class="pill">${escapeHtml(source)}</span><span class="pill">${escapeHtml(reportType)}</span></div>
+          <div class="summary-strip">
+            <div class="summary-chip"><span>Filas CSV</span><strong>${escapeHtml(rowCount == null ? 'n/a' : formatNumber(rowCount))}</strong></div>
+            <div class="summary-chip"><span>Eventos CH</span><strong>${escapeHtml(totalEvents == null ? 'n/a' : formatNumber(totalEvents))}</strong></div>
+            <div class="summary-chip"><span>Usuarios</span><strong>${escapeHtml(uniqueUsers == null ? 'n/a' : formatNumber(uniqueUsers))}</strong></div>
+          </div>
+          ${topEvents.length ? renderEventBars(topEvents, totalEvents || eventStats.maxCount || 1) : '<p class="muted">Sin breakdown de eventos todavía. Procesa el archivo o revisa ClickHouse.</p>'}
           <div class="file-meta">
             <span>ID: ${escapeHtml(id.slice(0, 8) || 'n/a')}</span>
             <span>Import: ${escapeHtml(importId ? importId.slice(0, 8) : 'n/a')}</span>
             <span>Size: ${escapeHtml(formatBytes(size))}</span>
-            <span>Fecha: ${escapeHtml(createdAt ? new Date(createdAt).toLocaleString() : 'n/a')}</span>
+            <span>Conf: ${escapeHtml(confidence == null ? 'n/a' : `${formatNumber(Number(confidence) * 100)}%`)}</span>
+            <span>Creado: ${escapeHtml(createdAt ? new Date(createdAt).toLocaleString() : 'n/a')}</span>
+            <span>Update: ${escapeHtml(updatedAt ? new Date(updatedAt).toLocaleString() : 'n/a')}</span>
+            <span>Checksum: ${escapeHtml(checksum ? checksum.slice(0, 10) : 'n/a')}</span>
+            <span>Review: ${escapeHtml(file.needsReview ?? file.needs_review ? 'sí' : 'no')}</span>
           </div>
           ${file.errorMessage || file.error_message ? `<p class="err">${escapeHtml(file.errorMessage || file.error_message)}</p>` : ''}
           <div class="file-actions">
@@ -475,6 +572,31 @@
           </div>
         </article>`;
       }).join('');
+    }
+    function renderFileSummary(files) {
+      const container = $('fileSummary');
+      if (!container) return;
+      const csvRows = files.reduce((sum, file) => sum + Number(fileRowCount(file) || 0), 0);
+      const processedEvents = files.reduce((sum, file) => sum + Number(file.__eventStats?.totalEvents || file.totalEvents || file.total_events || 0), 0);
+      const withImport = files.filter((file) => fileImportId(file)).length;
+      container.innerHTML = [
+        `<div class="summary-chip"><span>Archivos filtrados</span><strong>${formatNumber(files.length)}</strong></div>`,
+        `<div class="summary-chip"><span>Filas perfiladas</span><strong>${formatNumber(csvRows)}</strong></div>`,
+        `<div class="summary-chip"><span>Eventos procesados</span><strong>${formatNumber(processedEvents)}</strong></div>`,
+        `<div class="summary-chip"><span>Con import</span><strong>${formatNumber(withImport)}</strong></div>`,
+        `<div class="summary-chip"><span>Completados</span><strong>${formatNumber(files.filter((file) => fileStatus(file) === 'COMPLETED').length)}</strong></div>`,
+        `<div class="summary-chip"><span>Revisión/fallo</span><strong>${formatNumber(files.filter((file) => ['NEEDS_REVIEW','FAILED'].includes(fileStatus(file))).length)}</strong></div>`,
+      ].join('');
+    }
+    function renderEventBars(events, total) {
+      const max = Math.max(...events.map((event) => Number(event.count ?? event.events ?? 0)), 1);
+      return `<div class="event-bars">${events.map((event) => {
+        const count = Number(event.count ?? event.events ?? 0);
+        const name = event.canonicalEventName || event.canonical_event_name || event.eventName || event.event_name || 'event';
+        const width = Math.max(4, Math.round((count / max) * 100));
+        const share = total ? ` · ${formatNumber((count / Number(total)) * 100)}%` : '';
+        return `<div class="event-bar"><span>${escapeHtml(name)}</span><strong>${escapeHtml(formatNumber(count))}${escapeHtml(share)}</strong><div class="event-bar-track"><div class="event-bar-fill" style="width:${width}%"></div></div></div>`;
+      }).join('')}</div>`;
     }
     function selectFile(id, source, reportType, importId) {
       if (id) $('rawFileId').value = id;
@@ -495,6 +617,9 @@
           fetchJson('writer', '/projects/{projectId}/files?source={source}&report_type={reportType}'),
         ]);
         renderDashboard({ overview, facts, recommendations, reports, files });
+        renderAiOutputs(asArray(recommendations.body), asArray(reports.body), 'dashboardAiOutputs');
+        renderRecommendations(asArray(recommendations.body));
+        renderReports(asArray(reports.body));
         showOutput({ overview, facts, recommendations, reports, files });
       } catch (e) { showError(e); }
     }
@@ -544,9 +669,35 @@
       try {
         const body = await request('writer', '/projects', jsonOptions({ name:$('projectName').value, description:$('projectDescription').value }));
         if (body && body.id) { $('projectId').value = body.id; saveConfig(); }
+        await listProjects(false);
       } catch (e) { showError(e); }
     }
-    async function listProjects() { try { await request('writer', '/projects', { method:'GET' }); } catch(e) { showError(e); } }
+    async function listProjects(showRaw = true) {
+      try {
+        const body = showRaw ? await request('writer', '/projects', { method:'GET' }) : (await fetchJson('writer', '/projects')).body;
+        renderProjectOptions(asArray(body, ['data','projects','items','results']));
+      } catch(e) { showError(e); }
+    }
+    function renderProjectOptions(projects) {
+      const select = $('projectSelect');
+      if (!select) return;
+      const current = $('projectId').value.trim();
+      const options = ['<option value="">Selecciona un proyecto…</option>'].concat(projects.map((project) => {
+        const id = project.id || project.projectId || project.project_id || '';
+        const name = project.name || project.projectName || project.project_name || id;
+        const createdAt = project.createdAt || project.created_at || '';
+        const label = `${name}${createdAt ? ' · ' + new Date(createdAt).toLocaleDateString() : ''} · ${id.slice(0, 8)}`;
+        return `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`;
+      }));
+      select.innerHTML = options.join('');
+      if (current && [...select.options].some((option) => option.value === current)) select.value = current;
+    }
+    function selectProjectFromDropdown() {
+      const id = $('projectSelect').value;
+      if (id) $('projectId').value = id;
+      saveConfig();
+      refreshDashboard();
+    }
     async function uploadFile() {
       try {
         requiredProject();
@@ -571,18 +722,33 @@
         const status = $('fileStatusFilter')?.value || '';
         const path = '/projects/{projectId}/files?source={source}&report_type={reportType}' + (status ? `&status=${encodeURIComponent(status)}` : '');
         const body = await request('writer', path, { method:'GET' });
-        const files = asArray(body);
+        const files = await enrichFilesWithEventStats(asArray(body));
         renderFileCards(files);
-        const first = files[0];
-        if (first?.id && !$('rawFileId').value.trim()) {
-          $('rawFileId').value = first.id;
-          if (first.reportType) $('reportType').value = first.reportType;
-          if (first.source) $('source').value = String(first.source).toLowerCase();
-          if (fileImportId(first)) $('importId').value = fileImportId(first);
-          saveConfig();
-          renderFileCards(files);
-        }
+        // No autoseleccionamos el primer archivo: entrar a File Hub o refrescar el listado
+        // no debe cambiar filtros ni poblar IDs opcionales sin una acción explícita del usuario.
       } catch(e) { showError(e); }
+    }
+    async function enrichFilesWithEventStats(files) {
+      const enriched = await Promise.all(files.map(async (file) => {
+        const importId = fileImportId(file);
+        const source = String(fileSource(file)).toLowerCase();
+        const reportType = fileReportType(file);
+        if (!importId || source !== 'appsflyer') return file;
+        const path = `/projects/{projectId}/events/by-name?source=${encodeURIComponent(source)}&reportType=${encodeURIComponent(reportType)}&importId=${encodeURIComponent(importId)}`;
+        const result = await fetchJson('reader', path);
+        const rows = asArray(result.body);
+        return {
+          ...file,
+          __eventStats: {
+            ok: result.ok,
+            totalEvents: eventCountFromRows(rows),
+            uniqueUsers: uniqueUsersFromRows(rows),
+            topEvents: rows.slice(0, 6),
+            maxCount: Math.max(...rows.map((row) => Number(row.count ?? row.events ?? 0)), 0),
+          },
+        };
+      }));
+      return enriched;
     }
     async function getFileDetail() { try { requiredProject(); requiredRawFileId(); await request('writer', '/projects/{projectId}/files/{rawFileId}', { method:'GET' }); } catch(e) { showError(e); } }
     async function getFileDetailById(id) { $('rawFileId').value = id; saveConfig(); await getFileDetail(); }
@@ -615,6 +781,118 @@
     }
     async function reprocessFileById(id) { $('rawFileId').value = id; saveConfig(); await reprocessFile(); }
     async function getReader(path) { try { requiredProject(); await request('reader', path, { method:'GET' }); } catch(e) { showError(e); } }
+    async function loadRecommendations() {
+      try {
+        requiredProject();
+        const body = await request('reader', '/projects/{projectId}/recommendations?source={source}&reportType={reportType}&importId={importId}', { method:'GET' });
+        renderRecommendations(asArray(body));
+      } catch(e) { showError(e); }
+    }
+    async function loadReports() {
+      try {
+        requiredProject();
+        const body = await request('reader', '/projects/{projectId}/reports?source={source}&reportType={reportType}&importId={importId}', { method:'GET' });
+        renderReports(asArray(body));
+      } catch(e) { showError(e); }
+    }
+    async function refreshAiOutputs() { await Promise.all([loadRecommendations(), loadReports()]); }
+    function renderRecommendations(items) {
+      const container = $('recommendationCards');
+      if (!container) return;
+      container.innerHTML = items.length ? items.map(renderRecommendationCard).join('') : '<div class="empty-state">Sin recomendaciones para los filtros actuales.</div>';
+    }
+    function renderReports(items) {
+      const container = $('reportCards');
+      if (!container) return;
+      container.innerHTML = items.length ? items.map(renderReportCard).join('') : '<div class="empty-state">Sin reportes para los filtros actuales.</div>';
+    }
+    function renderAiOutputs(recommendations, reports, id) {
+      const container = $(id);
+      if (!container) return;
+      const cards = recommendations.slice(0, 2).map(renderRecommendationCard).concat(reports.slice(0, 2).map(renderReportCard));
+      container.innerHTML = cards.length ? cards.join('') : '<div class="empty-state">Aún no hay recomendaciones/reportes. Crea un analysis_run o termina un import.</div>';
+    }
+    function renderRecommendationCard(item) {
+      const title = item.title || item.headline || item.recommendationTitle || item.recommendation_title || item.factType || 'Recomendación';
+      const body = item.recommendation || item.description || item.summary || item.content || item.body || '';
+      const priority = item.priority || item.severity || 'INFO';
+      const provider = [item.provider, item.model].filter(Boolean).join(' · ') || item.generationStatus || item.generation_status || 'provider n/a';
+      const actions = item.actions || item.nextSteps || item.next_steps || item.recommendedActions || item.recommended_actions || [];
+      const limitations = item.limitations || item.warnings || [];
+      return `<article class="ai-card">
+        <div><span class="pill">${escapeHtml(priority)}</span><span class="pill">${escapeHtml(provider)}</span></div>
+        <h4>${escapeHtml(title)}</h4>
+        <div class="body">${escapeHtml(body || 'Sin cuerpo de recomendación.')}</div>
+        ${renderMiniList('Acciones', actions)}
+        ${renderMiniList('Limitaciones', limitations)}
+      </article>`;
+    }
+    function renderReportCard(item) {
+      const title = item.title || item.reportTitle || item.report_title || item.analysisType || 'Reporte AI';
+      const summary = item.summary || item.executiveSummary || item.executive_summary || item.content || item.body || item.report || '';
+      const status = item.generationStatus || item.generation_status || item.status || 'generated';
+      const provider = [item.provider, item.model].filter(Boolean).join(' · ') || 'provider n/a';
+      const sections = item.sections || item.keyFindings || item.key_findings || item.findings || [];
+      const limitations = item.limitations || item.warnings || [];
+      return `<article class="ai-card">
+        <div><span class="pill">${escapeHtml(status)}</span><span class="pill">${escapeHtml(provider)}</span></div>
+        <h4>${escapeHtml(title)}</h4>
+        <div class="markdown-card">${renderMarkdown(summary || 'Sin resumen del reporte.')}</div>
+        ${renderMarkdownSections(sections)}
+        ${renderMiniList('Limitaciones', limitations)}
+      </article>`;
+    }
+
+    function renderMarkdownSections(values) {
+      const array = Array.isArray(values) ? values : (values ? [values] : []);
+      if (!array.length) return '';
+      const markdown = array.slice(0, 4).map((value) => (typeof value === 'string' ? value : JSON.stringify(value, null, 2))).join('\n\n');
+      return `<div><p class="muted">Secciones / hallazgos</p><div class="markdown-card">${renderMarkdown(markdown)}</div></div>`;
+    }
+    function renderMarkdown(value) {
+      const text = String(value ?? '').replace(/\r\n/g, '\n').trim();
+      if (!text) return '';
+      const lines = text.split('\n');
+      const html = [];
+      let listType = null;
+      let inCode = false;
+      const closeList = () => { if (listType) { html.push(`</${listType}>`); listType = null; } };
+      const inline = (raw) => escapeHtml(raw)
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/__([^_]+)__/g, '<strong>$1</strong>')
+        .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+        .replace(/_([^_]+)_/g, '<em>$1</em>');
+      for (const line of lines) {
+        if (/^```/.test(line.trim())) {
+          closeList();
+          html.push(inCode ? '</code></pre>' : '<pre><code>');
+          inCode = !inCode;
+          continue;
+        }
+        if (inCode) { html.push(escapeHtml(line) + '\n'); continue; }
+        if (!line.trim()) { closeList(); continue; }
+        const heading = line.match(/^(#{1,3})\s+(.+)$/);
+        if (heading) { closeList(); html.push(`<h${heading[1].length}>${inline(heading[2])}</h${heading[1].length}>`); continue; }
+        const bullet = line.match(/^[-*]\s+(.+)$/);
+        if (bullet) { if (listType !== 'ul') { closeList(); html.push('<ul>'); listType = 'ul'; } html.push(`<li>${inline(bullet[1])}</li>`); continue; }
+        const ordered = line.match(/^\d+[.)]\s+(.+)$/);
+        if (ordered) { if (listType !== 'ol') { closeList(); html.push('<ol>'); listType = 'ol'; } html.push(`<li>${inline(ordered[1])}</li>`); continue; }
+        const quote = line.match(/^>\s?(.+)$/);
+        if (quote) { closeList(); html.push(`<blockquote>${inline(quote[1])}</blockquote>`); continue; }
+        closeList();
+        html.push(`<p>${inline(line)}</p>`);
+      }
+      closeList();
+      if (inCode) html.push('</code></pre>');
+      return html.join('');
+    }
+
+    function renderMiniList(label, values) {
+      const array = Array.isArray(values) ? values : (values ? [values] : []);
+      if (!array.length) return '';
+      return `<div><p class="muted">${escapeHtml(label)}</p><ul class="mini-list">${array.slice(0, 4).map((value) => `<li>${escapeHtml(typeof value === 'string' ? value : JSON.stringify(value))}</li>`).join('')}</ul></div>`;
+    }
     async function createAnalysisRun() {
       try {
         requiredProject();
@@ -833,6 +1111,7 @@
       metricCard('Reports', '—', 'esperando análisis'),
     ].join('');
     $('kpiCards').innerHTML = '<div class="empty-state">Configura un projectId y presiona Refrescar para cargar el overview.</div>';
+    $('dashboardAiOutputs').innerHTML = '<div class="empty-state">Sin AI outputs cargados.</div>';
     renderFactsPreview([]);
     renderFileCards([]);
     if ($('projectGoldSummaryCards')) {
@@ -841,6 +1120,8 @@
       $('projectGoldFunnelCards').innerHTML = '';
       $('projectGoldMediaSources').innerHTML = '<div class="empty-state">Sin ranking cargado todavía.</div>';
     }
+    renderRecommendations([]);
+    renderReports([]);
   </script>
 </body>
 </html>

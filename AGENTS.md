@@ -361,6 +361,8 @@ Current completed processing is AppsFlyer CSV. The next milestone remains: uploa
 ## Test UI Notes
 - A framework-free HTML/JavaScript test UI lives at `apps/admin/src/assets/atlas-ai-test-ui.html`.
 - When `apps/admin` is running, it is served from `/api/ui`; admin defaults to port `3002` so api-reader can keep `3000` and api-writer can keep `3001`.
-- The UI stores endpoint/project config in browser localStorage and calls only generic multi-source Writer/Reader endpoints.
-- The UI covers project setup, File Hub upload/list/detail/tag/process/reprocess/delete, AppsFlyer reader views, Project Gold recompute/summary/funnel/media-source quality, project-scope facts/recommendations/reports, analysis runs, process monitoring, controlled questions, and `/ai-chat` alias testing.
+- The UI stores endpoint/project config in browser localStorage and calls only generic multi-source Writer/Reader endpoints. Project selection is available through an explicit project selector card plus manual UUID input.
+- The UI covers project setup, File Hub upload/list/detail/tag/process/reprocess/delete, AppsFlyer reader views, facts, recommendations, reports, analysis runs, process monitoring, controlled questions, and `/ai-chat` alias testing.
+- File Hub cards surface profile/process metadata such as CSV row counts, classification confidence, checksum snippets, linked import IDs, and AppsFlyer event breakdowns when processed events are available.
+- Recommendations and reports have readable card views in addition to raw JSON so AI outputs can be reviewed without manually parsing the API response.
 - The test UI includes a `Monitoreo jobs` tab for polling raw file status, import flow, process runs, analysis run detail, and AI outputs linked to an `analysisRunId`.
