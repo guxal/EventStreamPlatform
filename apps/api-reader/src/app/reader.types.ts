@@ -13,7 +13,12 @@ export type DashboardSummary = {
     roas: number;
   };
   appsFlyer?: Record<string, unknown>;
-  unavailableMetrics?: Array<{ metric: string; reason: string }>;
+  trafficQualitySummary?: Record<string, unknown>;
+  mediaSourceQualityRanking?: unknown[];
+  campaignQualityRanking?: unknown[];
+  eventDictionaryCoverage?: Record<string, unknown>;
+  dataQualitySummary?: Record<string, unknown>;
+  unavailableMetrics?: Array<{ metric?: string; label?: string; status?: string; reason: string }>;
 };
 
 export type CampaignRow = {

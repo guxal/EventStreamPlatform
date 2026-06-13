@@ -71,7 +71,14 @@ export class AppService {
     projectId: string,
     period = 'last_7_days',
   ): Promise<DashboardSummary> {
-    const appsFlyer = await this.getAppsFlyerOverview(projectId);
+    const [appsFlyer, mediaSourceQualityRanking, campaignQualityRanking, eventDictionaryCoverage, dataQualitySummary, blockedTraffic] = await Promise.all([
+      this.getAppsFlyerOverview(projectId),
+      this.getAppsFlyerMediaSourceQuality(projectId, { source: 'appsflyer', limit: '10' }),
+      this.getAppsFlyerCampaignQuality(projectId, { source: 'appsflyer', limit: '10' }),
+      this.getAppsFlyerEventDictionaryCoverage(projectId, { source: 'appsflyer' }),
+      this.getAppsFlyerDataQuality(projectId, { source: 'appsflyer' }),
+      this.getAppsFlyerBlockedTraffic(projectId),
+    ]);
     return {
       projectId,
       period,
@@ -89,8 +96,13 @@ export class AppService {
         cpa: 0,
         roas: 0,
       },
-      appsFlyer: appsFlyer.totalEvents > 0 ? appsFlyer : undefined,
-      unavailableMetrics: appsFlyer.unavailableMetrics,
+      appsFlyer: appsFlyer.totalEvents > 0 ? { ...appsFlyer, blockedTraffic, mediaSourceQualityRanking, campaignQualityRanking, eventDictionaryCoverage, dataQualitySummary } : undefined,
+      trafficQualitySummary: { totalRawEvents: appsFlyer.totalRawEvents, totalValidEvents: appsFlyer.totalValidEvents, totalBlockedEvents: appsFlyer.totalBlockedEvents, blockedRate: appsFlyer.blockedRate, validEventRate: appsFlyer.validEventRate },
+      mediaSourceQualityRanking,
+      campaignQualityRanking,
+      eventDictionaryCoverage,
+      dataQualitySummary,
+      unavailableMetrics: [{ label: 'Reliable cost source', status: 'missing', reason: 'AppsFlyer imports do not provide reliable ad cost for ROAS.' }, ...appsFlyer.unavailableMetrics],
     };
   }
 
@@ -119,10 +131,10 @@ export class AppService {
 
   async getEntitiesPerformance(
     projectId: string,
-    filters: { source?: string } = {},
+    filters: { source?: string; trafficScope?: 'valid' | 'blocked' | 'all'; includeBlocked?: string } = {},
   ) {
     if (!filters.source || filters.source.toLowerCase() === 'appsflyer')
-      return this.getAppsFlyerCampaigns(projectId);
+      return this.getAppsFlyerCampaigns(projectId, { trafficScope: filters.trafficScope ?? (filters.includeBlocked === 'true' ? 'all' : 'valid') });
     return [];
   }
 
@@ -149,15 +161,35 @@ export class AppService {
     projectId: string,
     filters: AppsFlyerEventFilters = {},
   ) {
-    return this.appsFlyerEventsRepository.getEventsByName(projectId, filters);
+    return this.appsFlyerEventsRepository.getEventsByName(projectId, { ...filters, trafficScope: filters.trafficScope ?? 'valid' });
   }
 
-  async getAppsFlyerMediaSources(projectId: string) {
-    return this.appsFlyerEventsRepository.getMediaSources(projectId);
+  async getAppsFlyerMediaSources(projectId: string, filters: AppsFlyerEventFilters = {}) {
+    return this.appsFlyerEventsRepository.getMediaSources(projectId, { ...filters, trafficScope: filters.trafficScope ?? 'valid' });
   }
 
-  async getAppsFlyerCampaigns(projectId: string) {
-    return this.appsFlyerEventsRepository.getCampaigns(projectId);
+  async getAppsFlyerCampaigns(projectId: string, filters: AppsFlyerEventFilters = {}) {
+    return this.appsFlyerEventsRepository.getCampaigns(projectId, { ...filters, trafficScope: filters.trafficScope ?? 'valid' });
+  }
+
+  async getAppsFlyerMediaSourceQuality(projectId: string, filters: { source?: string; dateRangeStart?: string; dateRangeEnd?: string; trafficScope?: 'valid' | 'all'; limit?: string } = {}) {
+    if (filters.source && filters.source.toLowerCase() !== 'appsflyer') return [];
+    return this.appsFlyerEventsRepository.getMediaSourceQuality(projectId, { from: filters.dateRangeStart, to: filters.dateRangeEnd, trafficScope: filters.trafficScope ?? 'valid', limit: filters.limit ? Number(filters.limit) : undefined });
+  }
+
+  async getAppsFlyerCampaignQuality(projectId: string, filters: { source?: string; dateRangeStart?: string; dateRangeEnd?: string; trafficScope?: 'valid' | 'all'; limit?: string } = {}) {
+    if (filters.source && filters.source.toLowerCase() !== 'appsflyer') return [];
+    return this.appsFlyerEventsRepository.getCampaignQuality(projectId, { from: filters.dateRangeStart, to: filters.dateRangeEnd, trafficScope: filters.trafficScope ?? 'valid', limit: filters.limit ? Number(filters.limit) : undefined });
+  }
+
+  async getAppsFlyerEventDictionaryCoverage(projectId: string, filters: { source?: string; dateRangeStart?: string; dateRangeEnd?: string } = {}) {
+    if (filters.source && filters.source.toLowerCase() !== 'appsflyer') return {};
+    return this.appsFlyerEventsRepository.getEventDictionaryCoverage(projectId, { from: filters.dateRangeStart, to: filters.dateRangeEnd });
+  }
+
+  async getAppsFlyerDataQuality(projectId: string, filters: { source?: string; dateRangeStart?: string; dateRangeEnd?: string } = {}) {
+    if (filters.source && filters.source.toLowerCase() !== 'appsflyer') return {};
+    return this.appsFlyerEventsRepository.getDataQuality(projectId, { from: filters.dateRangeStart, to: filters.dateRangeEnd });
   }
 
   async getAppsFlyerBlockedTraffic(projectId: string) {

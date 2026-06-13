@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ReportType, type ProjectBlockedTrafficSummary, type ProjectDataAvailabilitySummary, type ProjectGoldSummary } from '@metrics-platform/marketing-shared';
-import { ClickHouseProjectAnalyticsRepository } from '@metrics-platform/marketing-infrastructure';
+import { AppsFlyerEventsRepository, ClickHouseProjectAnalyticsRepository } from '@metrics-platform/marketing-infrastructure';
 import { AppsFlyerCohortFunnelCalculator } from './appsflyer-cohort-funnel.calculator';
 import { AppsFlyerMediaSourceQualityCalculator } from './appsflyer-media-source-quality.calculator';
 import { AppsFlyerPeriodFunnelCalculator } from './appsflyer-period-funnel.calculator';
@@ -13,6 +13,7 @@ export class AppsFlyerProjectGoldCalculator {
   private readonly logger = new Logger(AppsFlyerProjectGoldCalculator.name);
   constructor(
     private readonly analyticsRepository: ClickHouseProjectAnalyticsRepository,
+    private readonly appsFlyerEventsRepository: AppsFlyerEventsRepository,
     private readonly periodCalculator: AppsFlyerPeriodFunnelCalculator,
     private readonly cohortCalculator: AppsFlyerCohortFunnelCalculator,
     private readonly mediaSourceCalculator: AppsFlyerMediaSourceQualityCalculator,
@@ -34,6 +35,11 @@ export class AppsFlyerProjectGoldCalculator {
     this.logger.log({ event: 'PROJECT_BLOCKED_TRAFFIC_COMPUTED', projectId: input.projectId, correlationId: input.correlationId, blockedInstalls: blockedTraffic.blockedInstalls, blockedInAppEvents: blockedTraffic.blockedInAppEvents });
     const mediaSourceQuality = this.mediaSourceCalculator.calculate(await this.analyticsRepository.getMediaSourceQuality(input.projectId, filters));
     const campaignMetrics = await this.analyticsRepository.getCampaignMetrics(input.projectId, filters);
+    const [campaignQuality, eventDictionaryCoverage, dataQualitySummary] = await Promise.all([
+      this.appsFlyerEventsRepository.getCampaignQuality(input.projectId, { from: input.dateRangeStart ?? undefined, to: input.dateRangeEnd ?? undefined, trafficScope: 'valid', limit: 100 }),
+      this.appsFlyerEventsRepository.getEventDictionaryCoverage(input.projectId, { from: input.dateRangeStart ?? undefined, to: input.dateRangeEnd ?? undefined }),
+      this.appsFlyerEventsRepository.getDataQuality(input.projectId, { from: input.dateRangeStart ?? undefined, to: input.dateRangeEnd ?? undefined }),
+    ]);
     this.logger.log({ event: 'PROJECT_MEDIA_SOURCE_QUALITY_COMPUTED', projectId: input.projectId, correlationId: input.correlationId, mediaSources: mediaSourceQuality.rows.length });
     const limitations = [...availability.limitations, ...periodFunnel.limitations, ...cohortFunnel.limitations, ...mediaSourceQuality.limitations];
     const kpis = this.kpis(availability, periodRaw, periodFunnel, cohortFunnel, blockedTraffic, mediaSourceQuality.rows.length);
@@ -41,7 +47,7 @@ export class AppsFlyerProjectGoldCalculator {
     const resolvedEnd = input.dateRangeEnd ?? (String(periodRaw.periodEnd || '') || null);
     availability.dateRangeStart = resolvedStart;
     availability.dateRangeEnd = resolvedEnd;
-    return { projectId: input.projectId, source: input.source.toLowerCase(), analysisRunId: input.analysisRunId, dateRangeStart: resolvedStart, dateRangeEnd: resolvedEnd, dataAvailability: availability, periodFunnel, cohortFunnel, mediaSourceQuality, campaignMetrics, blockedTraffic, kpis, limitations, generatedAt: new Date().toISOString() };
+    return { projectId: input.projectId, source: input.source.toLowerCase(), analysisRunId: input.analysisRunId, dateRangeStart: resolvedStart, dateRangeEnd: resolvedEnd, dataAvailability: availability, periodFunnel, cohortFunnel, mediaSourceQuality, campaignMetrics, campaignQuality, eventDictionaryCoverage, dataQualitySummary, blockedTraffic, kpis, limitations, generatedAt: new Date().toISOString() };
   }
 
   private availability(rows: Array<{ reportType: string; events: number }>, dateRangeStart?: string | null, dateRangeEnd?: string | null): ProjectDataAvailabilitySummary {

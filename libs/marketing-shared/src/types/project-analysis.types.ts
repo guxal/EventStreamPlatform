@@ -153,6 +153,9 @@ export type ProjectGoldSummary = {
   mediaSourceQuality: ProjectMediaSourceQualitySummary;
   campaignMetrics?: Array<Record<string, unknown>>;
   blockedTraffic: ProjectBlockedTrafficSummary;
+  campaignQuality?: Array<Record<string, unknown>>;
+  eventDictionaryCoverage?: Record<string, unknown>;
+  dataQualitySummary?: Record<string, unknown>;
   kpis: Record<string, number | string | boolean | null>;
   limitations: string[];
   generatedAt: string;
