@@ -63,7 +63,13 @@ export class ProjectGoldRecomputeService {
     if (message.includes('payload') || message.includes('Unsupported')) return ProjectAnalysisErrorStage.PROJECT_ANALYSIS_REQUEST_VALIDATION;
     if (message.includes('metric_snapshots')) return ProjectAnalysisErrorStage.PROJECT_METRIC_PERSISTENCE;
     if (message.includes('detected_facts')) return ProjectAnalysisErrorStage.PROJECT_FACT_GENERATION;
-    if (message.includes('AI')) return ProjectAnalysisErrorStage.PROJECT_AI_SUMMARY_GENERATION;
+    if (
+      message.includes('recommendations') ||
+      message.includes('ai_reports') ||
+      message.includes('invalid JSON') ||
+      message.includes('AI')
+    )
+      return ProjectAnalysisErrorStage.PROJECT_AI_SUMMARY_GENERATION;
     return ProjectAnalysisErrorStage.PROJECT_DATA_AVAILABILITY;
   }
 }

@@ -24,8 +24,8 @@ export class DetectedFactRepository {
       await this.dataSource.query(
         `INSERT INTO detected_facts (
            id, project_id, entity_type, fact_type, severity, confidence, temporal_context, metrics_summary, recommendation_hint,
-           scope_type, scope_id, analysis_run_id, source, report_type, date_range_start, date_range_end
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11::uuid, $12::uuid, $13, $14, $15::date, $16::date)`,
+           scope_type, scope_id, analysis_run_id, project_analysis_run_id, source, report_type, date_range_start, date_range_end
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11::uuid, $12::uuid, $13::uuid, $14, $15, $16::date, $17::date)`,
         [
           fact.id ?? randomUUID(),
           projectId,
@@ -38,7 +38,8 @@ export class DetectedFactRepository {
           fact.recommendationHint ?? null,
           fact.scopeType ?? String(fact.metricsSummary?.scopeType ?? 'IMPORT'),
           fact.scopeId ?? (typeof fact.metricsSummary?.scopeId === 'string' ? fact.metricsSummary.scopeId : null),
-          fact.analysisRunId ?? (typeof fact.metricsSummary?.analysisRunId === 'string' ? fact.metricsSummary.analysisRunId : null),
+          this.importAnalysisRunId(fact),
+          this.projectAnalysisRunId(fact),
           fact.source ?? (typeof fact.metricsSummary?.source === 'string' ? fact.metricsSummary.source : null),
           fact.reportType ?? (typeof fact.metricsSummary?.reportType === 'string' ? fact.metricsSummary.reportType : null),
           fact.dateRangeStart ?? (typeof fact.metricsSummary?.dateRangeStart === 'string' ? fact.metricsSummary.dateRangeStart : null),
@@ -117,5 +118,17 @@ export class DetectedFactRepository {
       .filter((fact) => !filters.importId || String(fact.metricsSummary.dataImportId ?? fact.metricsSummary.importId ?? '') === filters.importId)
       .filter((fact) => !filters.rawFileId || String(fact.metricsSummary.rawFileId ?? '') === filters.rawFileId)
       .filter((fact) => !(filters.scope ?? filters.scopeType) || String(fact.scopeType ?? fact.metricsSummary.scopeType ?? '').toLowerCase() === String(filters.scope ?? filters.scopeType).toLowerCase());
+  }
+
+  private importAnalysisRunId(fact: DetectedFact): string | null {
+    const scopeType = String(fact.scopeType ?? fact.metricsSummary?.scopeType ?? '').toUpperCase();
+    if (scopeType === 'PROJECT') return null;
+    return fact.analysisRunId ?? (typeof fact.metricsSummary?.analysisRunId === 'string' ? fact.metricsSummary.analysisRunId : null);
+  }
+
+  private projectAnalysisRunId(fact: DetectedFact): string | null {
+    const scopeType = String(fact.scopeType ?? fact.metricsSummary?.scopeType ?? '').toUpperCase();
+    if (scopeType !== 'PROJECT') return null;
+    return fact.analysisRunId ?? (typeof fact.metricsSummary?.analysisRunId === 'string' ? fact.metricsSummary.analysisRunId : null);
   }
 }

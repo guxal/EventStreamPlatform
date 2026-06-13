@@ -15,8 +15,8 @@ export class AiReportRepository {
       `INSERT INTO ai_reports (
          id, project_id, report_type, title, content_markdown, model_name, model_version, metadata,
          provider, source, source_report_type, import_id, raw_file_id, raw_ai_output, generation_status,
-         error_message, related_fact_ids, related_entity_ids, analysis_run_id, model, scope_type, scope_id, date_range_start, date_range_end
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12::uuid, $13::uuid, $14::jsonb, $15, $16, $17::text[], $18::text[], $19::uuid, $20, $21, $22::uuid, $23::date, $24::date)
+         error_message, related_fact_ids, related_entity_ids, analysis_run_id, project_analysis_run_id, model, scope_type, scope_id, date_range_start, date_range_end
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12::uuid, $13::uuid, $14::jsonb, $15, $16, $17::text[], $18::text[], $19::uuid, $20::uuid, $21, $22, $23::uuid, $24::date, $25::date)
        ON CONFLICT (id) DO NOTHING`,
       [
         item.id,
@@ -38,6 +38,7 @@ export class AiReportRepository {
         metadata.relatedFactIds ?? item.relatedFactIds ?? [],
         metadata.relatedEntityIds ?? item.relatedEntityIds ?? [],
         metadata.analysisRunId ?? item.analysisRunId ?? null,
+        metadata.projectAnalysisRunId ?? null,
         metadata.model ?? item.model ?? item.modelVersion ?? null,
         metadata.scopeType ?? 'IMPORT',
         metadata.scopeId ?? null,

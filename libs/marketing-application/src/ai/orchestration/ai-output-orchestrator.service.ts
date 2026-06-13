@@ -29,6 +29,7 @@ export type AiOutputContextExtras = {
   rawFileId?: string;
   source?: string;
   reportType?: string;
+  projectAnalysisRunId?: string;
 };
 
 @Injectable()
@@ -115,7 +116,7 @@ export class AiOutputOrchestratorService {
           modelVersion: this.modelName(provider.name),
           createdAt: new Date().toISOString(),
           metadata: {
-            ...this.metadataFromFact(sourceFact),
+            ...this.metadataFromFact(sourceFact, extras),
             provider: this.providerName(provider.name),
             model: this.modelName(provider.name),
             generationStatus: this.generationStatus(provider.name),
@@ -222,7 +223,7 @@ export class AiOutputOrchestratorService {
         modelVersion: this.modelName(provider.name),
         createdAt: new Date().toISOString(),
         metadata: {
-          ...this.metadataFromFacts(facts),
+          ...this.metadataFromFacts(facts, extras),
           provider: this.providerName(provider.name),
           model: this.modelName(provider.name),
           generationStatus: this.generationStatus(provider.name),
@@ -352,7 +353,7 @@ export class AiOutputOrchestratorService {
       modelVersion: 'none',
       createdAt: new Date().toISOString(),
       metadata: {
-        ...this.metadataFromFact(fact),
+        ...this.metadataFromFact(fact, {}),
         generationStatus: 'SKIPPED',
         errorMessage: this.errorMessage(error),
         provider: 'NONE',
@@ -387,7 +388,7 @@ export class AiOutputOrchestratorService {
       modelVersion: 'none',
       createdAt: new Date().toISOString(),
       metadata: {
-        ...this.metadataFromFacts(facts),
+        ...this.metadataFromFacts(facts, {}),
         generationStatus: 'SKIPPED',
         errorMessage: this.errorMessage(error),
         provider: 'NONE',
@@ -415,7 +416,12 @@ export class AiOutputOrchestratorService {
 
   private metadataFromFact(
     fact: DetectedFact | undefined,
+    extras: AiOutputContextExtras = {},
   ): Record<string, unknown> {
+    const scopeType = String(
+      fact?.scopeType ?? fact?.metricsSummary?.scopeType ?? '',
+    );
+    const runIds = this.resolveRunIds(fact, extras, scopeType);
     return {
       source: fact?.metricsSummary?.source,
       reportType: fact?.metricsSummary?.reportType,
@@ -425,20 +431,28 @@ export class AiOutputOrchestratorService {
       factType: fact?.factType,
       entityType: fact?.entityType,
       entityId: fact?.entityId,
-      scopeType: fact?.scopeType ?? fact?.metricsSummary?.scopeType,
+      scopeType,
       scopeId: fact?.scopeId ?? fact?.metricsSummary?.scopeId,
-      analysisRunId: fact?.analysisRunId ?? fact?.metricsSummary?.analysisRunId,
+      analysisRunId: runIds.analysisRunId,
+      projectAnalysisRunId: runIds.projectAnalysisRunId,
       dateRangeStart: fact?.dateRangeStart ?? fact?.metricsSummary?.dateRangeStart,
       dateRangeEnd: fact?.dateRangeEnd ?? fact?.metricsSummary?.dateRangeEnd,
     };
   }
 
-  private metadataFromFacts(facts: DetectedFact[]): Record<string, unknown> {
+  private metadataFromFacts(
+    facts: DetectedFact[],
+    extras: AiOutputContextExtras = {},
+  ): Record<string, unknown> {
     const dataImportIds = Array.from(
       new Set(
         facts.map((fact) => fact.metricsSummary?.dataImportId).filter(Boolean),
       ),
     );
+    const scopeType = String(
+      facts[0]?.scopeType ?? facts[0]?.metricsSummary?.scopeType ?? '',
+    );
+    const runIds = this.resolveRunIds(facts[0], extras, scopeType);
     return {
       source: facts[0]?.metricsSummary?.source,
       reportType: facts[0]?.metricsSummary?.reportType,
@@ -450,12 +464,31 @@ export class AiOutputOrchestratorService {
         new Set(facts.map((fact) => fact.entityId).filter(Boolean)),
       ),
       factTypes: facts.map((fact) => fact.factType),
-      scopeType: facts[0]?.scopeType ?? facts[0]?.metricsSummary?.scopeType,
+      scopeType,
       scopeId: facts[0]?.scopeId ?? facts[0]?.metricsSummary?.scopeId,
-      analysisRunId: facts[0]?.analysisRunId ?? facts[0]?.metricsSummary?.analysisRunId,
+      analysisRunId: runIds.analysisRunId,
+      projectAnalysisRunId: runIds.projectAnalysisRunId,
       dateRangeStart: facts[0]?.dateRangeStart ?? facts[0]?.metricsSummary?.dateRangeStart,
       dateRangeEnd: facts[0]?.dateRangeEnd ?? facts[0]?.metricsSummary?.dateRangeEnd,
     };
+  }
+
+  private resolveRunIds(
+    fact: DetectedFact | undefined,
+    extras: AiOutputContextExtras,
+    scopeType?: string,
+  ): { analysisRunId?: string; projectAnalysisRunId?: string } {
+    const isProject = String(scopeType ?? '').toUpperCase() === 'PROJECT';
+    const runId =
+      extras.projectAnalysisRunId ??
+      fact?.analysisRunId ??
+      (typeof fact?.metricsSummary?.analysisRunId === 'string'
+        ? fact.metricsSummary.analysisRunId
+        : undefined);
+    if (isProject) {
+      return { projectAnalysisRunId: runId };
+    }
+    return { analysisRunId: runId };
   }
 
   private errorMessage(error: unknown): string {
