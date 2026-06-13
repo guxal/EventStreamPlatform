@@ -24,6 +24,7 @@ export class ProjectAiSummaryOrchestratorService {
       ],
       correlationId,
       source: summary.source,
+      projectAnalysisRunId: summary.analysisRunId,
       projectGoldSummary: summary,
     };
     const recommendations = await this.aiOutputOrchestrator.generateAndStoreRecommendations(projectId, facts, extras);

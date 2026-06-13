@@ -17,7 +17,7 @@ export abstract class BaseHttpAiProvider implements AiProvider {
     const result = await this.generateText({ ...input, responseFormat: 'json' });
     this.debugLogger.logResponseParsingStarted(meta as any, input.schemaName);
     try {
-      const data = JSON.parse(result.content) as T;
+      const data = parseProviderJsonContent<T>(result.content);
       this.debugLogger.logResponseParsed({ ...(meta as any), model: result.model }, { outputType: input.schemaName, itemsCount: Array.isArray((data as any)?.recommendations) ? (data as any).recommendations.length : undefined, valid: true, parsedOutput: data });
       return {
         provider: result.provider,
@@ -37,5 +37,20 @@ export abstract class BaseHttpAiProvider implements AiProvider {
     const key = this.apiKey();
     if (!key) throw new AiProviderError('AI_PROVIDER_NOT_CONFIGURED', `${this.name} provider is not configured`);
     return key;
+  }
+}
+
+function parseProviderJsonContent<T>(content: string): T {
+  const trimmed = content.trim();
+  if (!trimmed) throw new SyntaxError('Provider returned empty JSON content');
+  try {
+    return JSON.parse(trimmed) as T;
+  } catch {
+    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenced?.[1]) return JSON.parse(fenced[1].trim()) as T;
+    const start = trimmed.indexOf('{');
+    const end = trimmed.lastIndexOf('}');
+    if (start >= 0 && end > start) return JSON.parse(trimmed.slice(start, end + 1)) as T;
+    throw new SyntaxError('Unable to parse provider JSON content');
   }
 }
