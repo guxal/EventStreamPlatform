@@ -11,7 +11,7 @@ export class AppsFlyerNormalizerPlugin {
   normalize(context: AppsFlyerProcessingContext, row: ParsedEventValueRow): NormalizedAppsFlyerEvent {
     const c = row.canonical;
     const eventName = c.eventName ?? this.defaultEventName(context.reportType);
-    const canonicalEventName = this.canonicalEventName(context.reportType, eventName);
+    const canonicalEventName = this.canonicalEventName(context.reportType, eventName, context.mappingProfile);
     const eventTime = this.parseDate(c.eventTime) ?? this.parseDate(c.installTime) ?? new Date(0);
     const installTime = this.parseDate(c.installTime);
     const eventRevenue = this.parseNumber(c.eventRevenue);
@@ -56,7 +56,7 @@ export class AppsFlyerNormalizerPlugin {
       retargetingConversionType: c.retargetingConversionType ?? null,
       eventAmount: row.eventAmount ?? null,
       eventRevenue,
-      currency: c.currency ?? null,
+      currency: c.currency ?? context.mappingProfile?.currency ?? null,
       isBlocked,
       blockedReason: c.blockedReason ?? null,
       rejectedReason: c.rejectedReason ?? null,
@@ -65,13 +65,13 @@ export class AppsFlyerNormalizerPlugin {
     };
   }
 
-  private canonicalEventName(reportType: ReportType, eventName: string): CanonicalEventType {
+  private canonicalEventName(reportType: ReportType, eventName: string, mappingProfile?: import('@metrics-platform/marketing-shared').ProjectSourceMapping | null): CanonicalEventType {
     if (reportType === ReportType.INSTALLS || reportType === ReportType.BLOCKED_INSTALLS) {
       return eventName.toLowerCase().includes('reinstall') ? CanonicalEventType.REINSTALL : CanonicalEventType.INSTALL;
     }
     if (reportType === ReportType.UNINSTALLS) return CanonicalEventType.UNINSTALL;
     if (reportType === ReportType.BLOCKED_CLICKS) return CanonicalEventType.UNKNOWN;
-    return this.dictionary.map(eventName);
+    return this.dictionary.map(eventName, mappingProfile);
   }
 
   private defaultEventName(reportType: ReportType): string {

@@ -1,5 +1,5 @@
 import type { Readable } from 'stream';
-import type { DataSource, DetectedFact, RawImportFileRecord, ReportType } from '@metrics-platform/marketing-shared';
+import type { DataSource, DetectedFact, ProjectSourceMapping, RawImportFileRecord, ReportType } from '@metrics-platform/marketing-shared';
 import type { NormalizedAppsFlyerEvent } from '@metrics-platform/marketing-shared';
 
 export type AppsFlyerProcessingContext = {
@@ -11,6 +11,7 @@ export type AppsFlyerProcessingContext = {
   reportType: ReportType;
   fileName?: string;
   rawFile?: RawImportFileRecord;
+  mappingProfile?: ProjectSourceMapping | null;
 };
 
 export type AppsFlyerReportProfileResult = {

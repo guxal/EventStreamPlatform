@@ -48,7 +48,7 @@ export class AppsFlyerProcessingPipelineService {
     const warnings: string[] = [];
     for await (const row of this.parser.parse(parseStream)) {
       if (Object.keys(row.raw).length === 0) { warnings.push(...row.warnings); continue; }
-      const mapped = this.mapper.map(row);
+      const mapped = this.mapper.map(row, input.context.mappingProfile);
       const parsed = this.eventValueParser.parse(mapped);
       warnings.push(...parsed.warnings.map((warning) => `row_${parsed.rowNumber}:${warning}`));
       events.push(this.normalizer.normalize(input.context, parsed));

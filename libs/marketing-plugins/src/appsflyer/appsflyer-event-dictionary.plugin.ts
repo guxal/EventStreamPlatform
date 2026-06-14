@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CanonicalEventType } from '@metrics-platform/marketing-shared';
+import { CanonicalEventType, type ProjectSourceMapping } from '@metrics-platform/marketing-shared';
 
 const DEFAULT_EVENT_DICTIONARY: Record<string, CanonicalEventType> = {
   install: CanonicalEventType.INSTALL,
@@ -40,8 +40,10 @@ const DEFAULT_EVENT_DICTIONARY: Record<string, CanonicalEventType> = {
 
 @Injectable()
 export class AppsFlyerEventDictionaryPlugin {
-  map(eventName: string | null | undefined): CanonicalEventType {
+  map(eventName: string | null | undefined, mappingProfile?: ProjectSourceMapping | null): CanonicalEventType {
     const key = String(eventName ?? '').trim().toLowerCase();
+    const clientValue = mappingProfile?.eventMapping?.[eventName ?? ''] ?? mappingProfile?.eventMapping?.[key];
+    if (clientValue && (Object.values(CanonicalEventType) as string[]).includes(clientValue)) return clientValue as CanonicalEventType;
     if (key.startsWith('placebet_success_')) return CanonicalEventType.SPORTS_BET_PLACED;
     return DEFAULT_EVENT_DICTIONARY[key] ?? CanonicalEventType.UNKNOWN;
   }

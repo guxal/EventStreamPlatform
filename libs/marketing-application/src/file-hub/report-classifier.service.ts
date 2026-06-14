@@ -151,7 +151,7 @@ export class ReportClassifierService {
   }
 
   private calculateConfidence(match: RuleMatch): number {
-    if (match.filenameScore > 0 && match.headerScore >= 0.32) return 0.92;
+    if (match.filenameScore > 0 && match.headerScore >= 0.32) return 0.96;
     if (match.headerScore >= 0.4) return 0.85;
     if (match.headerScore >= 0.24) return 0.78;
     if (match.filenameScore > 0) return 0.62;

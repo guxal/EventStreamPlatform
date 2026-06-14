@@ -165,6 +165,7 @@
       <div class="tabs">
         <button class="active" onclick="showTab('dashboard', this); refreshDashboard()">Dashboard</button>
         <button onclick="showTab('files', this); listFiles()">File Hub</button>
+        <button onclick="showTab('mappings', this); loadMappings()">Mappings</button>
         <button onclick="showTab('reader', this)">Reader</button>
         <button onclick="showTab('analysis', this)">AI analysis_runs</button>
         <button onclick="showTab('project-gold', this); loadProjectGold()">Project Gold</button>
@@ -214,11 +215,62 @@
             <button class="small secondary" onclick="listFiles()">Refrescar listado</button>
           </div>
           <div class="grid">
-            <div><label>Status filter</label><select id="fileStatusFilter"><option value="">Todos</option><option>UPLOADED</option><option>PROFILING</option><option>PROFILED</option><option>READY_TO_PROCESS</option><option>NEEDS_REVIEW</option><option>PROCESSING</option><option>COMPLETED</option><option>FAILED</option></select></div>
+            <div><label>Status filter</label><select id="fileStatusFilter"><option value="">Todos</option><option>UPLOADED</option><option>PROFILING</option><option>PROFILED</option><option>AUTO_CLASSIFIED</option><option>SCHEMA_DETECTED</option><option>MAPPING_REQUIRED</option><option>MAPPING_SUGGESTED</option><option>MAPPING_CONFIRMED</option><option>READY_TO_PROCESS</option><option>NEEDS_REVIEW</option><option>PROCESSING</option><option>COMPLETED</option><option>FAILED</option></select></div>
             <div><label>Acción rápida</label><button class="secondary" onclick="listFiles()">Aplicar filtros</button></div>
           </div>
           <div id="fileSummary" class="summary-strip"></div>
           <div id="fileCards" class="file-grid"></div>
+        </div>
+      </div>
+
+      <div id="tab-mappings" class="stack hidden">
+        <div class="card">
+          <div class="section-head">
+            <div>
+              <h2>Client Mapping Profiles</h2>
+              <p>Flujo de onboarding de schema: detectar, sugerir con AI opcional, confirmar y aplicar antes de procesar.</p>
+            </div>
+            <button class="small secondary" onclick="loadMappings()">Refrescar mappings</button>
+          </div>
+          <div class="summary-strip" id="mappingFlowSummary">
+            <div class="summary-chip"><span>Sin mapping confirmado</span><strong>No procesa</strong></div>
+            <div class="summary-chip"><span>Estado esperado</span><strong>MAPPING_REQUIRED</strong></div>
+            <div class="summary-chip"><span>Siguiente paso</span><strong>Analyze/Suggest → Confirm → Apply</strong></div>
+          </div>
+          <div class="grid">
+            <button onclick="analyzeSchema(false)">Detectar schema</button>
+            <button onclick="analyzeSchema(true)">Detectar + sugerir AI</button>
+            <button class="secondary" onclick="suggestSchema()">Solo AI suggest</button>
+            <button class="secondary" onclick="loadMappings()">GET mappings</button>
+          </div>
+          <p class="muted">Si el archivo queda en <code>MAPPING_REQUIRED</code> o <code>MAPPING_SUGGESTED</code>, el botón de procesar no funcionará hasta confirmar y aplicar un mapping. El AI Schema Assistant solo usa headers y sampleRows sanitizados; no analiza performance.</p>
+        </div>
+
+        <div class="card">
+          <h2>Mapping seleccionado / editor manual</h2>
+          <div class="grid">
+            <div><label>Mapping ID</label><input id="mappingId" placeholder="se completa al seleccionar/crear" /></div>
+            <div><label>Status filtro</label><select id="mappingStatusFilter"><option value="">Todos</option><option>DRAFT</option><option>AI_SUGGESTED</option><option>NEEDS_REVIEW</option><option>CONFIRMED</option><option>ACTIVE</option><option>ARCHIVED</option></select></div>
+          </div>
+          <label>Mapping JSON</label>
+          <textarea id="mappingEditor" placeholder='{"source":"appsflyer","reportType":"installs","columnMapping":{"AppsFlyer ID":"appsflyer_id","Install Time":"install_time"},"identityStrategy":["appsflyer_id"],"sensitiveFields":["AppsFlyer ID"],"currency":"CAD","timezone":"America/Toronto"}'></textarea>
+          <div class="grid">
+            <button onclick="createMapping()">Crear mapping manual</button>
+            <button class="secondary" onclick="updateMapping()">PATCH mapping</button>
+            <button onclick="confirmMapping()">Confirmar mapping</button>
+            <button onclick="applyMappingToFile()">Aplicar a rawFileId</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-head">
+            <div>
+              <h2>Mappings del proyecto</h2>
+              <p>Versiones por project/source/report_type/schemaSignature. Selecciona uno para editar/confirmar/aplicar.</p>
+            </div>
+          </div>
+          <div id="mappingSummary" class="summary-strip"></div>
+          <div id="mappingCards" class="file-grid"></div>
         </div>
       </div>
 
@@ -436,7 +488,7 @@
 
   <script>
     const $ = (id) => document.getElementById(id);
-    const fields = ['writerBase','readerBase','projectId','source','reportType','importId','rawFileId','analysisRunId','processRunId','projectGoldSource','projectGoldFrom','projectGoldTo','projectGoldForce'];
+    const fields = ['writerBase','readerBase','projectId','source','reportType','importId','rawFileId','analysisRunId','processRunId','projectGoldSource','projectGoldFrom','projectGoldTo','projectGoldForce','mappingId','mappingStatusFilter'];
     let monitorTimer = null;
 
     function loadConfig() {
@@ -483,7 +535,8 @@
         .replaceAll('{importId}', encodeURIComponent(c.importId))
         .replaceAll('{rawFileId}', encodeURIComponent(c.rawFileId))
         .replaceAll('{analysisRunId}', encodeURIComponent(c.analysisRunId))
-        .replaceAll('{processRunId}', encodeURIComponent(c.processRunId));
+        .replaceAll('{processRunId}', encodeURIComponent(c.processRunId))
+        .replaceAll('{mappingId}', encodeURIComponent(c.mappingId));
       const [pathname, query] = out.split('?');
       if (!query) return pathname;
       const cleanQuery = query
@@ -597,6 +650,11 @@
         const totalEvents = eventStats.totalEvents ?? file.totalEvents ?? file.total_events ?? null;
         const uniqueUsers = eventStats.uniqueUsers ?? file.uniqueUsers ?? file.unique_users ?? null;
         const confidence = file.classificationConfidence ?? file.classification_confidence ?? null;
+        const mappingId = file.mappingId || file.mapping_id || '';
+        const mappingStatus = file.mappingStatus || file.mapping_status || '';
+        const mappingValidation = file.mappingValidation || file.mapping_validation || null;
+        const mappingResolutionType = file.mappingResolutionType || file.mapping_resolution_type || file.mapping?.resolutionType || mappingValidation?.resolutionType || '';
+        const nextAction = file.nextAction || file.next_action || file.mapping?.nextAction || mappingValidation?.nextAction || '';
         const checksum = fileChecksum(file);
         const processDisabled = status !== 'READY_TO_PROCESS' ? 'disabled title="Solo READY_TO_PROCESS se puede procesar"' : '';
         const reprocessDisabled = ['UPLOADED','PROFILING','PROFILED','NEEDS_REVIEW'].includes(status) ? 'disabled title="Reprocesa cuando ya existe/stuck/falló/completó un proceso"' : '';
@@ -619,13 +677,19 @@
             <span>Update: ${escapeHtml(updatedAt ? new Date(updatedAt).toLocaleString() : 'n/a')}</span>
             <span>Checksum: ${escapeHtml(checksum ? checksum.slice(0, 10) : 'n/a')}</span>
             <span>Review: ${escapeHtml(file.needsReview ?? file.needs_review ? 'sí' : 'no')}</span>
+            <span>Mapping: ${escapeHtml(mappingStatus || 'n/a')}</span>
+            <span>Mapping ID: ${escapeHtml(mappingId ? mappingId.slice(0, 8) : 'n/a')}</span>
+            <span>Resolution: ${escapeHtml(mappingResolutionType || 'n/a')}</span>
+            <span>Next: ${escapeHtml(nextAction || 'n/a')}</span>
           </div>
+          ${mappingValidation && mappingValidation.errors?.length ? `<p class="err">Mapping errors: ${escapeHtml(mappingValidation.errors.join('; '))}</p>` : ''}
           ${file.errorMessage || file.error_message ? `<p class="err">${escapeHtml(file.errorMessage || file.error_message)}</p>` : ''}
           <div class="file-actions">
             <button class="small secondary" onclick="selectFile('${escapeHtml(id)}','${escapeHtml(source)}','${escapeHtml(reportType)}','${escapeHtml(importId)}')">Seleccionar</button>
             <button class="small" ${processDisabled} onclick="processFileById('${escapeHtml(id)}')">Procesar</button>
             <button class="small secondary" ${reprocessDisabled} onclick="reprocessFileById('${escapeHtml(id)}')">Reprocesar</button>
             <button class="small secondary" onclick="getFileDetailById('${escapeHtml(id)}')">Detalle</button>
+            <button class="small secondary" onclick="selectFileForMapping('${escapeHtml(id)}','${escapeHtml(source)}','${escapeHtml(reportType)}','${escapeHtml(mappingId)}')">Mapping</button>
           </div>
         </article>`;
       }).join('');
@@ -642,7 +706,7 @@
         `<div class="summary-chip"><span>Eventos procesados</span><strong>${formatNumber(processedEvents)}</strong></div>`,
         `<div class="summary-chip"><span>Con import</span><strong>${formatNumber(withImport)}</strong></div>`,
         `<div class="summary-chip"><span>Completados</span><strong>${formatNumber(files.filter((file) => fileStatus(file) === 'COMPLETED').length)}</strong></div>`,
-        `<div class="summary-chip"><span>Revisión/fallo</span><strong>${formatNumber(files.filter((file) => ['NEEDS_REVIEW','FAILED'].includes(fileStatus(file))).length)}</strong></div>`,
+        `<div class="summary-chip"><span>Revisión/fallo</span><strong>${formatNumber(files.filter((file) => ['NEEDS_REVIEW','MAPPING_REQUIRED','MAPPING_SUGGESTED','FAILED'].includes(fileStatus(file))).length)}</strong></div>`,
       ].join('');
     }
     function renderEventBars(events, total) {
@@ -853,6 +917,109 @@
       }));
       return enriched;
     }
+    function requiredMappingId() { if (!$('mappingId').value.trim()) throw new Error('Configura mappingId primero.'); }
+    function mappingStatus(item) { return item.status || item.mappingStatus || item.mapping_status || 'UNKNOWN'; }
+    function mappingSource(item) { return item.source || 'unknown'; }
+    function mappingReportType(item) { return item.reportType || item.report_type || 'unknown'; }
+    function mappingSchemaSignature(item) { return item.schemaSignature || item.schema_signature || ''; }
+    function mappingColumnMapping(item) { return item.columnMapping || item.column_mapping || {}; }
+    function mappingEventMapping(item) { return item.eventMapping || item.event_mapping || {}; }
+    function selectFileForMapping(fileId, source, reportType, mappingId = '') {
+      if (fileId) $('rawFileId').value = fileId;
+      if (source && source !== 'unknown') $('source').value = source;
+      if (reportType && reportType !== 'unknown') $('reportType').value = reportType;
+      if (mappingId) $('mappingId').value = mappingId;
+      saveConfig();
+      showTab('mappings');
+      loadMappings();
+    }
+    function selectMapping(mapping) {
+      const id = mapping.id || mapping.mappingId || mapping.mapping_id || '';
+      if (id) $('mappingId').value = id;
+      $('mappingEditor').value = JSON.stringify(mapping, null, 2);
+      saveConfig();
+      setStatus('Mapping seleccionado: ' + id, 'ok');
+    }
+    function renderMappingCards(mappings) {
+      const summary = $('mappingSummary');
+      const cards = $('mappingCards');
+      if (!cards) return;
+      if (summary) {
+        summary.innerHTML = [
+          `<div class="summary-chip"><span>Total</span><strong>${formatNumber(mappings.length)}</strong></div>`,
+          `<div class="summary-chip"><span>Activos</span><strong>${formatNumber(mappings.filter((m) => mappingStatus(m) === 'ACTIVE').length)}</strong></div>`,
+          `<div class="summary-chip"><span>AI sugeridos</span><strong>${formatNumber(mappings.filter((m) => mappingStatus(m) === 'AI_SUGGESTED').length)}</strong></div>`,
+          `<div class="summary-chip"><span>Review</span><strong>${formatNumber(mappings.filter((m) => ['DRAFT','NEEDS_REVIEW','AI_SUGGESTED'].includes(mappingStatus(m))).length)}</strong></div>`,
+        ].join('');
+      }
+      if (!mappings.length) {
+        cards.innerHTML = '<div class="empty-state">No hay mappings para estos filtros. Usa Detectar + sugerir AI o crea uno manual.</div>';
+        return;
+      }
+      cards.innerHTML = mappings.map((mapping) => {
+        const id = mapping.id || mapping.mappingId || mapping.mapping_id || '';
+        const status = mappingStatus(mapping);
+        const columnCount = Object.keys(mappingColumnMapping(mapping)).length;
+        const eventCount = Object.keys(mappingEventMapping(mapping)).length;
+        const schema = mappingSchemaSignature(mapping);
+        return `<article class="file-card">
+          <div class="file-title">Mapping ${escapeHtml(id.slice(0, 8) || 'n/a')}</div>
+          <div><span class="pill status-${escapeHtml(status)}">${escapeHtml(status)}</span><span class="pill">${escapeHtml(mappingSource(mapping))}</span><span class="pill">${escapeHtml(mappingReportType(mapping))}</span></div>
+          <div class="summary-strip">
+            <div class="summary-chip"><span>Version</span><strong>${escapeHtml(mapping.version ?? 'n/a')}</strong></div>
+            <div class="summary-chip"><span>Columns</span><strong>${formatNumber(columnCount)}</strong></div>
+            <div class="summary-chip"><span>Events</span><strong>${formatNumber(eventCount)}</strong></div>
+          </div>
+          <div class="file-meta">
+            <span>Active: ${escapeHtml(mapping.isActive ?? mapping.is_active ? 'sí' : 'no')}</span>
+            <span>AI: ${escapeHtml(mapping.aiSuggested ?? mapping.ai_suggested ? 'sí' : 'no')}</span>
+            <span>Conf: ${escapeHtml(mapping.aiConfidence ?? mapping.ai_confidence ?? 'n/a')}</span>
+            <span>Schema: ${escapeHtml(schema ? schema.slice(0, 12) : 'n/a')}</span>
+          </div>
+          <div class="file-actions">
+            <button class="small secondary" onclick='selectMapping(${JSON.stringify(mapping).replace(/'/g, "&#39;")})'>Seleccionar</button>
+            <button class="small" onclick="confirmMappingById('${escapeHtml(id)}')">Confirmar</button>
+            <button class="small secondary" onclick="applyMappingById('${escapeHtml(id)}')">Aplicar</button>
+          </div>
+        </article>`;
+      }).join('');
+    }
+    async function loadMappings() {
+      try {
+        requiredProject();
+        const status = $('mappingStatusFilter')?.value || '';
+        const path = '/projects/{projectId}/mappings?source={source}&reportType={reportType}' + (status ? `&status=${encodeURIComponent(status)}` : '');
+        const body = await request('writer', path, { method:'GET' });
+        renderMappingCards(asArray(body, ['data','items','results','mappings']));
+      } catch(e) { showError(e); }
+    }
+    async function analyzeSchema(useAi) {
+      try {
+        requiredProject(); requiredRawFileId();
+        const body = await request('writer', '/projects/{projectId}/files/{rawFileId}/schema/analyze', jsonOptions({ useAi }));
+        const mapping = body.mapping || body.data?.mapping;
+        if (mapping) selectMapping(mapping);
+        await Promise.allSettled([listFiles(), loadMappings()]);
+      } catch(e) { showError(e); }
+    }
+    async function suggestSchema() {
+      try {
+        requiredProject(); requiredRawFileId();
+        const body = await request('writer', '/projects/{projectId}/files/{rawFileId}/schema/suggest', { method:'POST' });
+        $('mappingEditor').value = JSON.stringify(body, null, 2);
+      } catch(e) { showError(e); }
+    }
+    function mappingPayloadFromEditor() {
+      const raw = $('mappingEditor').value.trim();
+      if (!raw) throw new Error('Pega o escribe Mapping JSON primero.');
+      return JSON.parse(raw);
+    }
+    async function createMapping() { try { requiredProject(); const body = await request('writer', '/projects/{projectId}/mappings', jsonOptions(mappingPayloadFromEditor())); selectMapping(body.mapping || body); await loadMappings(); } catch(e) { showError(e); } }
+    async function updateMapping() { try { requiredProject(); requiredMappingId(); const body = await request('writer', '/projects/{projectId}/mappings/{mappingId}', { method:'PATCH', headers:{ 'content-type':'application/json' }, body: JSON.stringify(mappingPayloadFromEditor()) }); selectMapping(body.mapping || body); await loadMappings(); } catch(e) { showError(e); } }
+    async function confirmMapping() { try { requiredProject(); requiredMappingId(); await confirmMappingById($('mappingId').value.trim()); } catch(e) { showError(e); } }
+    async function confirmMappingById(id) { $('mappingId').value = id; saveConfig(); const body = await request('writer', '/projects/{projectId}/mappings/{mappingId}/confirm', jsonOptions({ confirmedBy: 'test-ui' })); selectMapping(body.mapping || body); await loadMappings(); }
+    async function applyMappingToFile() { try { requiredProject(); requiredRawFileId(); requiredMappingId(); await applyMappingById($('mappingId').value.trim()); } catch(e) { showError(e); } }
+    async function applyMappingById(id) { $('mappingId').value = id; saveConfig(); await request('writer', '/projects/{projectId}/files/{rawFileId}/mapping/{mappingId}/apply', { method:'POST' }); await Promise.allSettled([listFiles(), loadMappings()]); }
     async function getFileDetail() { try { requiredProject(); requiredRawFileId(); await request('writer', '/projects/{projectId}/files/{rawFileId}', { method:'GET' }); } catch(e) { showError(e); } }
     async function getFileDetailById(id) { $('rawFileId').value = id; saveConfig(); await getFileDetail(); }
     async function processFile() {
@@ -1237,7 +1404,7 @@
       for (const el of document.querySelectorAll('[id^="tab-"]')) el.classList.add('hidden');
       $('tab-' + name).classList.remove('hidden');
       for (const b of document.querySelectorAll('.tabs button')) b.classList.remove('active');
-      btn.classList.add('active');
+      if (btn) btn.classList.add('active');
     }
     async function copyOutput() { await navigator.clipboard.writeText($('outputMirror').textContent || $('output').textContent || ''); setStatus('Copiado al clipboard', 'ok'); }
     loadConfig();

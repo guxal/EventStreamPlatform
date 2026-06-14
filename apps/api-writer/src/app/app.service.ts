@@ -3,7 +3,7 @@ import { CommandBus } from '@nestjs/cqrs';
 import { randomUUID } from 'crypto';
 import { EventProducerService } from '@metrics-platform/core-infrastructure';
 import { AnalysisRunRepository, DataImportRepository, ProjectAnalysisRunRepository, ProjectRepository, RawImportFileRepository } from '@metrics-platform/marketing-infrastructure';
-import { FileHubService } from '@metrics-platform/marketing-application';
+import { FileHubService, ProjectSourceMappingService, SchemaDetectionService, AiSchemaAssistantService } from '@metrics-platform/marketing-application';
 import { ObjectStorageService } from '@metrics-platform/marketing-infrastructure';
 import { CreateEventCommand } from '@metrics-platform/core-application';
 import { CreateEventDto } from '@metrics-platform/core-shared';
@@ -25,6 +25,9 @@ export class AppService {
     private readonly objectStorageService: ObjectStorageService,
     private readonly projectRepository: ProjectRepository,
     private readonly fileHubService: FileHubService,
+    private readonly mappingService: ProjectSourceMappingService,
+    private readonly schemaDetectionService: SchemaDetectionService,
+    private readonly aiSchemaAssistantService: AiSchemaAssistantService,
     private readonly analysisRunRepository: AnalysisRunRepository,
     private readonly projectAnalysisRunRepository: ProjectAnalysisRunRepository,
     private readonly dataImportRepository: DataImportRepository,
@@ -132,6 +135,22 @@ export class AppService {
 
   reprocessProjectFile(projectId: string, fileId: string) {
     return this.fileHubService.reprocessFile(projectId, fileId, 'api-writer');
+  }
+
+
+  listMappings(projectId: string, filters: { source?: string; reportType?: string; status?: string }) { return this.mappingService.list(projectId, filters); }
+  getMapping(projectId: string, mappingId: string) { return this.mappingService.get(projectId, mappingId); }
+  createMapping(projectId: string, payload: any) { return this.mappingService.create(projectId, payload); }
+  updateMapping(projectId: string, mappingId: string, payload: any) { return this.mappingService.update(projectId, mappingId, payload); }
+  confirmMapping(projectId: string, mappingId: string, confirmedBy?: string) { return this.mappingService.confirm(projectId, mappingId, confirmedBy); }
+  applyMappingToFile(projectId: string, fileId: string, mappingId: string) { return this.mappingService.applyToFile(projectId, fileId, mappingId); }
+  async analyzeFileSchema(projectId: string, fileId: string, payload: { useAi?: boolean }) {
+    const rawFile = await this.fileHubService.getFile(projectId, fileId);
+    return this.schemaDetectionService.analyze({ projectId, rawFileId: fileId, source: rawFile.source, reportType: rawFile.reportType, headers: rawFile.headers, sampleRows: rawFile.sampleRows, classificationConfidence: rawFile.classificationConfidence, tags: rawFile.tags, fileName: rawFile.originalFileName, rowCount: rawFile.rowCount, useAi: Boolean(payload.useAi) });
+  }
+  async suggestFileSchema(projectId: string, fileId: string) {
+    const rawFile = await this.fileHubService.getFile(projectId, fileId);
+    return this.aiSchemaAssistantService.suggest({ projectId, rawFileId: fileId, source: rawFile.source, reportType: rawFile.reportType, headers: rawFile.headers, sampleRows: rawFile.sampleRows, fileName: rawFile.originalFileName, rowCount: rawFile.rowCount, classificationConfidence: rawFile.classificationConfidence });
   }
 
   async recomputeProjectGold(projectId: string, payload: { source?: string; dateRangeStart?: string; dateRangeEnd?: string; force?: boolean }) {

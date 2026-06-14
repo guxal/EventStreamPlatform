@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { ProjectSourceMapping } from '@metrics-platform/marketing-shared';
 import type { MappedAppsFlyerRow, ParsedCsvRow } from './appsflyer.types';
 
 const COLUMN_ALIASES: Record<string, string[]> = {
@@ -35,12 +36,17 @@ const COLUMN_ALIASES: Record<string, string[]> = {
 
 @Injectable()
 export class AppsFlyerColumnMapper {
-  map(row: ParsedCsvRow): MappedAppsFlyerRow {
+  map(row: ParsedCsvRow, mappingProfile?: ProjectSourceMapping | null): MappedAppsFlyerRow {
     const normalizedIndex = new Map<string, string>();
     for (const key of Object.keys(row.raw)) normalizedIndex.set(this.normalizeHeader(key), key);
 
     const canonical: Record<string, string | undefined> = {};
+    for (const [sourceHeader, canonicalField] of Object.entries(mappingProfile?.columnMapping ?? {})) {
+      const actualKey = normalizedIndex.get(this.normalizeHeader(sourceHeader));
+      if (actualKey) canonical[this.toInternalField(String(canonicalField))] = this.emptyToUndefined(row.raw[actualKey]);
+    }
     for (const [target, aliases] of Object.entries(COLUMN_ALIASES)) {
+      if (canonical[target] !== undefined) continue;
       const actualKey = aliases.map((alias) => normalizedIndex.get(this.normalizeHeader(alias))).find(Boolean);
       canonical[target] = actualKey ? this.emptyToUndefined(row.raw[actualKey]) : undefined;
     }
@@ -50,6 +56,10 @@ export class AppsFlyerColumnMapper {
 
   normalizeHeader(header: string): string {
     return header.trim().toLowerCase().replace(/[\s_-]+/g, '').replace(/[^a-z0-9]/g, '');
+  }
+
+  private toInternalField(canonicalField: string): string {
+    return canonicalField.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
   }
 
   private emptyToUndefined(value: string | undefined): string | undefined {

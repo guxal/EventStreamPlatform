@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { EventProducerService } from '@metrics-platform/core-infrastructure';
 import {
@@ -22,6 +22,7 @@ import {
 } from '@metrics-platform/marketing-infrastructure';
 import { FileProfilerService } from './file-profiler.service';
 import { ReportClassifierService } from './report-classifier.service';
+import { SchemaDetectionService } from '../mapping/schema-detection.service';
 
 const AUTO_READY_CONFIDENCE_THRESHOLD = 0.75;
 
@@ -35,6 +36,7 @@ export class FileHubService {
     private readonly fileProfilerService: FileProfilerService,
     private readonly reportClassifierService: ReportClassifierService,
     private readonly eventProducerService: EventProducerService,
+    @Optional() private readonly schemaDetectionService?: SchemaDetectionService,
   ) {}
 
   async uploadFile(projectId: string, payload: CreateRawFilePayload): Promise<FileHubUploadResult> {
@@ -81,9 +83,26 @@ export class FileHubService {
       reportType: classification.reportType,
       classificationConfidence: classification.confidence,
       needsReview: !ready,
-      status: ready ? RawFileStatus.READY_TO_PROCESS : RawFileStatus.NEEDS_REVIEW,
+      status: ready ? (this.schemaDetectionService ? RawFileStatus.AUTO_CLASSIFIED : RawFileStatus.READY_TO_PROCESS) : RawFileStatus.NEEDS_REVIEW,
       tags: payload.tags,
     });
+
+    if (ready && this.schemaDetectionService) {
+      const detection = await this.schemaDetectionService.analyze({
+        projectId,
+        rawFileId,
+        source: classification.source,
+        reportType: classification.reportType,
+        headers: profile.headers,
+        sampleRows: profile.sampleRows,
+        classificationConfidence: classification.confidence,
+        tags: payload.tags,
+        fileName: payload.fileName,
+        rowCount: profile.rowCount,
+        useAi: process.env.AI_SCHEMA_ASSISTANT_AUTO === 'true',
+      });
+      rawFile = detection.rawFile;
+    }
 
     return {
       rawFile,
@@ -143,8 +162,8 @@ export class FileHubService {
       source,
       reportType,
       classificationConfidence: 1,
-      needsReview: false,
-      status: RawFileStatus.READY_TO_PROCESS,
+      needsReview: true,
+      status: RawFileStatus.MAPPING_REQUIRED,
       tags: payload.tags,
     });
   }
@@ -171,6 +190,10 @@ export class FileHubService {
       throw new BadRequestException('Unknown files cannot be reprocessed until source and report_type are confirmed');
     }
 
+    if (!rawFile.mappingId || !['CONFIRMED', 'ACTIVE', 'MAPPING_CONFIRMED'].includes(String(rawFile.mappingStatus))) {
+      throw new BadRequestException('A confirmed or active mapping profile is required before processing');
+    }
+
     if (rawFile.source !== DataSource.APPSFLYER) {
       throw new BadRequestException('Only AppsFlyer File Hub files can be reprocessed by this endpoint in V1');
     }
@@ -192,6 +215,10 @@ export class FileHubService {
 
     if (!this.hasValidManualTags(rawFile.source, rawFile.reportType)) {
       throw new BadRequestException('Unknown files cannot be processed until source and report_type are confirmed');
+    }
+
+    if (!rawFile.mappingId || !['CONFIRMED', 'ACTIVE', 'MAPPING_CONFIRMED'].includes(String(rawFile.mappingStatus))) {
+      throw new BadRequestException('A confirmed or active mapping profile is required before processing');
     }
 
     if (rawFile.source !== DataSource.APPSFLYER) {
@@ -216,6 +243,8 @@ export class FileHubService {
       source: rawFile.source,
       reportType: rawFile.reportType,
       tags: rawFile.tags,
+      mappingId: rawFile.mappingId,
+      schemaSignature: rawFile.schemaSignature,
       triggeredBy: 'file_hub',
       correlationId: randomUUID(),
     };

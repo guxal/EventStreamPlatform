@@ -19,3 +19,4 @@ export * from './ai/questions';
 export * from './ai/debug';
 
 export * from './project-gold';
+export * from './mapping';

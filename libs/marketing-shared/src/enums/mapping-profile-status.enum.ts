@@ -1,0 +1,8 @@
+export enum MappingProfileStatus {
+  DRAFT = 'DRAFT',
+  AI_SUGGESTED = 'AI_SUGGESTED',
+  NEEDS_REVIEW = 'NEEDS_REVIEW',
+  CONFIRMED = 'CONFIRMED',
+  ACTIVE = 'ACTIVE',
+  ARCHIVED = 'ARCHIVED',
+}

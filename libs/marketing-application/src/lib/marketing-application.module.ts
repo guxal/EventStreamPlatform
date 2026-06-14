@@ -11,6 +11,7 @@ import { AiAnalysisRunnerService } from '../ai/analysis';
 import { AiOutputOrchestratorService } from '../ai/orchestration/ai-output-orchestrator.service';
 import { AiQuestionAnsweringService, AiQuestionDataService, AiQuestionIntentRouter } from '../ai/questions';
 import { FileHubService } from '../file-hub/file-hub.service';
+import { AiSchemaAssistantService, BuiltInSourceMappingRegistry, MappingValidationService, ProjectSourceMappingService, SchemaDetectionService } from '../mapping';
 import { FileProfilerService } from '../file-hub/file-profiler.service';
 import { ReportClassifierService } from '../file-hub/report-classifier.service';
 import { AppsFlyerCohortFunnelCalculator, AppsFlyerMediaSourceQualityCalculator, AppsFlyerPeriodFunnelCalculator, AppsFlyerProjectGoldCalculator, ProjectAiSummaryOrchestratorService, ProjectFactsGeneratorService, ProjectGoldRecomputeService } from '../project-gold';
@@ -34,6 +35,11 @@ import { AppsFlyerSemanticAdapter, ContextBuilderService, SemanticBuilderService
     FileHubService,
     FileProfilerService,
     ReportClassifierService,
+    AiSchemaAssistantService,
+    BuiltInSourceMappingRegistry,
+    MappingValidationService,
+    ProjectSourceMappingService,
+    SchemaDetectionService,
     AppsFlyerSemanticAdapter,
     SemanticBuilderService,
     ContextBuilderService,
@@ -61,6 +67,11 @@ import { AppsFlyerSemanticAdapter, ContextBuilderService, SemanticBuilderService
     FileHubService,
     FileProfilerService,
     ReportClassifierService,
+    AiSchemaAssistantService,
+    BuiltInSourceMappingRegistry,
+    MappingValidationService,
+    ProjectSourceMappingService,
+    SchemaDetectionService,
     ContextBuilderService,
     SemanticBuilderService,
     AppsFlyerSemanticAdapter,
