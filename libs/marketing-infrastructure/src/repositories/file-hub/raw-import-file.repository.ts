@@ -31,6 +31,15 @@ export type UpdateRawImportFileProfileInput = {
   status: RawFileStatus;
 };
 
+export type UpdateRawImportFileMappingInput = {
+  mappingId?: string | null;
+  schemaSignature?: string | null;
+  mappingStatus?: string | null;
+  mappingValidation?: Record<string, unknown> | null;
+  status: RawFileStatus;
+  needsReview: boolean;
+};
+
 export type UpdateRawImportFileClassificationInput = {
   source: DataSource;
   reportType: ReportType;
@@ -183,6 +192,23 @@ export class RawImportFileRepository {
     return this.toRecord(firstQueryRow(rows));
   }
 
+  async updateMapping(projectId: string, fileId: string, input: UpdateRawImportFileMappingInput): Promise<RawImportFileRecord> {
+    const rows = await this.dataSource.query(
+      `UPDATE raw_import_files
+       SET mapping_id = $3,
+           schema_signature = $4,
+           mapping_status = $5,
+           mapping_validation = $6::jsonb,
+           status = $7,
+           needs_review = $8,
+           updated_at = NOW()
+       WHERE project_id = $1 AND id = $2
+       RETURNING *`,
+      [projectId, fileId, input.mappingId ?? null, input.schemaSignature ?? null, input.mappingStatus ?? null, JSON.stringify(input.mappingValidation ?? {}), input.status, input.needsReview],
+    );
+    return this.toRecord(firstQueryRow(rows));
+  }
+
   async resetForReprocess(projectId: string, fileId: string): Promise<RawImportFileRecord> {
     const rows = await this.dataSource.query(
       `UPDATE raw_import_files
@@ -257,6 +283,23 @@ export class RawImportFileRepository {
       status: row.status,
       errorMessage: row.error_message ?? null,
       errorSummary: row.error_summary ?? null,
+      mappingId: row.mapping_id ?? null,
+      schemaSignature: row.schema_signature ?? null,
+      mappingStatus: row.mapping_status ?? null,
+      mappingValidation: row.mapping_validation ?? null,
+      mappingResolutionType: this.mappingValidationField(row.mapping_validation, 'resolutionType'),
+      mappingRequiresReview: Boolean(this.mappingValidationField(row.mapping_validation, 'requiresReview')),
+      mappingValidationErrors: this.mappingValidationErrors(row.mapping_validation),
+      nextAction: this.mappingValidationField(row.mapping_validation, 'nextAction'),
+      mapping: {
+        id: row.mapping_id ?? null,
+        status: row.mapping_status ?? null,
+        resolutionType: this.mappingValidationField(row.mapping_validation, 'resolutionType'),
+        schemaSignature: row.schema_signature ?? null,
+        requiresReview: Boolean(this.mappingValidationField(row.mapping_validation, 'requiresReview')),
+        nextAction: this.mappingValidationField(row.mapping_validation, 'nextAction'),
+        validationErrors: this.mappingValidationErrors(row.mapping_validation),
+      },
       createdAt: this.toIso(row.created_at),
       updatedAt: this.toIso(row.updated_at),
     };

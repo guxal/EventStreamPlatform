@@ -13,6 +13,7 @@ import {
   ObjectStorageService,
   ProcessAuditRepository,
   ProjectRepository,
+  ProjectSourceMappingRepository,
   RawImportFileRepository,
 } from '@metrics-platform/marketing-infrastructure';
 import {
@@ -30,6 +31,7 @@ import { startQueueConsumer } from '../queue/queue.consumer';
 
 export enum AppsFlyerProcessingErrorStage {
   PROCESS_REQUEST_VALIDATION = 'PROCESS_REQUEST_VALIDATION',
+  MAPPING_PROFILE_MISSING = 'MAPPING_PROFILE_MISSING',
   BRONZE_PROFILING = 'BRONZE_PROFILING',
   SILVER_PARSING = 'SILVER_PARSING',
   SILVER_NORMALIZATION = 'SILVER_NORMALIZATION',
@@ -48,6 +50,7 @@ export class AppsFlyerImportProcessor implements OnModuleInit {
   constructor(
     private readonly projectRepository: ProjectRepository,
     private readonly rawImportFileRepository: RawImportFileRepository,
+    private readonly mappingRepository: ProjectSourceMappingRepository,
     private readonly dataImportRepository: DataImportRepository,
     private readonly objectStorageService: ObjectStorageService,
     private readonly pipeline: AppsFlyerProcessingPipelineService,
@@ -134,6 +137,14 @@ export class AppsFlyerImportProcessor implements OnModuleInit {
         payload.rawFileId,
       );
       if (!rawFile) throw new Error(`Raw file ${payload.rawFileId} not found`);
+      const mappingProfile = rawFile.mappingId
+        ? await this.mappingRepository.findByProjectAndId(payload.projectId, rawFile.mappingId)
+        : rawFile.schemaSignature
+          ? await this.mappingRepository.findActiveBySchema(payload.projectId, payload.source, payload.reportType, rawFile.schemaSignature)
+          : null;
+      if (!mappingProfile || !['CONFIRMED', 'ACTIVE'].includes(String(mappingProfile.status))) {
+        throw new Error('MAPPING_PROFILE_MISSING: confirmed or active client mapping profile is required');
+      }
 
       const streamResult = await this.runAuditedStep(
         auditRunId,
@@ -176,6 +187,7 @@ export class AppsFlyerImportProcessor implements OnModuleInit {
               reportType: payload.reportType,
               fileName: rawFile.originalFileName,
               rawFile,
+              mappingProfile,
             },
             stream: streamResult.stream,
             existingProfile: rawFile,
@@ -190,6 +202,7 @@ export class AppsFlyerImportProcessor implements OnModuleInit {
               services: [
                 'AppsFlyerReportProfilerPlugin',
                 'AppsFlyerCsvStreamParserPlugin',
+                'ProjectSourceMappingRepository',
                 'AppsFlyerColumnMapper',
                 'AppsFlyerEventValueParserPlugin',
                 'AppsFlyerNormalizerPlugin',
@@ -608,6 +621,7 @@ export class AppsFlyerImportProcessor implements OnModuleInit {
 
   private inferErrorStage(error: unknown): AppsFlyerProcessingErrorStage {
     const message = (error as Error).message ?? '';
+    if (message.includes('MAPPING_PROFILE_MISSING')) return AppsFlyerProcessingErrorStage.MAPPING_PROFILE_MISSING;
     if (
       message.includes('payload') ||
       message.includes('Project') ||

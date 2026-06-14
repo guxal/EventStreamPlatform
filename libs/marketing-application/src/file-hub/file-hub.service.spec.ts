@@ -115,7 +115,7 @@ describe('FileHubService', () => {
     expect(result.rawFile.needsReview).toBe(false);
   });
 
-  it('manual valid tags set files to READY_TO_PROCESS', async () => {
+  it('manual valid tags set files to MAPPING_REQUIRED', async () => {
     const { service } = createService({ status: RawFileStatus.NEEDS_REVIEW });
     const result = await service.updateTags('project-1', 'file-1', {
       source: 'appsflyer' as DataSource,
@@ -123,8 +123,8 @@ describe('FileHubService', () => {
       tags: { account: 'demo' },
     });
 
-    expect(result.status).toBe(RawFileStatus.READY_TO_PROCESS);
-    expect(result.needsReview).toBe(false);
+    expect(result.status).toBe(RawFileStatus.MAPPING_REQUIRED);
+    expect(result.needsReview).toBe(true);
   });
 
   it('rejects processing unless status is READY_TO_PROCESS', async () => {
@@ -183,6 +183,8 @@ describe('FileHubService', () => {
       source: DataSource.APPSFLYER,
       reportType: ReportType.INSTALLS,
       needsReview: false,
+      mappingId: 'mapping-1',
+      mappingStatus: 'ACTIVE',
     });
 
     const result = await service.requestProcessing('project-1', 'file-1');
@@ -205,6 +207,8 @@ describe('FileHubService', () => {
       reportType: ReportType.INSTALLS,
       needsReview: false,
       errorMessage: 'previous failure',
+      mappingId: 'mapping-1',
+      mappingStatus: 'ACTIVE',
     });
 
     const result = await service.reprocessFile('project-1', 'file-1');

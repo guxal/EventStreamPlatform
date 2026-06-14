@@ -366,3 +366,18 @@ Current completed processing is AppsFlyer CSV. The next milestone remains: uploa
 - File Hub cards surface profile/process metadata such as CSV row counts, classification confidence, checksum snippets, linked import IDs, and AppsFlyer event breakdowns when processed events are available.
 - Recommendations and reports have readable card views in addition to raw JSON so AI outputs can be reviewed without manually parsing the API response.
 - The test UI includes a `Monitoreo jobs` tab for polling raw file status, import flow, process runs, analysis run detail, and AI outputs linked to an `analysisRunId`.
+
+## Epic 16 Status (Completed) — Client Mapping Profiles & AI Schema Assistant
+- Added project-level Client Mapping Profiles in `project_source_mappings` so project/source/report-type schema differences are handled by configuration before considering custom client plugins.
+- File Hub now stores schema and mapping metadata on raw files (`mapping_id`, `schema_signature`, `mapping_status`, `mapping_validation`) and can require mapping review before processing new schemas.
+- `SchemaDetectionService` creates deterministic schema/header signatures and reuses active mappings for matching project/source/report-type schemas.
+- `AiSchemaAssistantService` suggests schema mappings from sanitized headers/sample rows only; it is not a performance analysis path and redacts sensitive identifiers before building suggestions.
+- Mapping confirmation validates required columns and activates a mapping for processing; processing now requires a confirmed/active mapping profile.
+- Processor Worker loads mapping profiles and passes them into the AppsFlyer pipeline; AppsFlyer column mapping and event dictionary prioritize client-specific mappings before defaults.
+- Documentation lives in `docs/CLIENT_MAPPING_PROFILES.md` and `docs/AI_SCHEMA_ASSISTANT.md`; keep both documents and this AGENTS memory in sync when mapping behavior changes.
+
+## Epic 16 Follow-up — Built-in Default Mapping Fallback
+- Mapping resolution is not one mapping per file. The reusable client contract is `projectId + source + reportType + schemaSignature`; `raw_import_files.mapping_id` is only a reference to that contract.
+- Resolution order is attached file mapping, active project mapping, trusted built-in default mapping by source/reportType, then AI/manual review.
+- Standard AppsFlyer schemas can auto-create a system-generated ACTIVE project mapping from built-in defaults with `metadata.createdFrom=BUILT_IN_DEFAULT_MAPPING`, then move files to `READY_TO_PROCESS` without manual mapping.
+- Unknown, ambiguous, low-confidence, or changed schemas still move to mapping review and cannot be processed until a confirmed/active mapping is available.

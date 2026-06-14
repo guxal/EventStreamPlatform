@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CommandBus } from '@nestjs/cqrs';
 import { EventProducerService } from '@metrics-platform/core-infrastructure';
-import { FileHubService } from '@metrics-platform/marketing-application';
+import { FileHubService, ProjectSourceMappingService, SchemaDetectionService, AiSchemaAssistantService } from '@metrics-platform/marketing-application';
 import { ObjectStorageService, ProjectRepository, AnalysisRunRepository, DataImportRepository, ProjectAnalysisRunRepository, RawImportFileRepository } from '@metrics-platform/marketing-infrastructure';
 import { AppService } from './app.service';
 
@@ -35,6 +35,9 @@ describe('AppService', () => {
         { provide: ProjectAnalysisRunRepository, useValue: { create: jest.fn().mockImplementation(async (input) => input) } },
         { provide: DataImportRepository, useValue: { findByProjectAndId: jest.fn() } },
         { provide: RawImportFileRepository, useValue: { findByProjectAndId: jest.fn() } },
+        { provide: ProjectSourceMappingService, useValue: { list: jest.fn(), get: jest.fn(), create: jest.fn(), update: jest.fn(), confirm: jest.fn(), applyToFile: jest.fn() } },
+        { provide: SchemaDetectionService, useValue: { analyze: jest.fn() } },
+        { provide: AiSchemaAssistantService, useValue: { suggest: jest.fn() } },
         {
           provide: FileHubService,
           useValue: {

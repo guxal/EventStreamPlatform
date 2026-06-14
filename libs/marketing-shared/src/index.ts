@@ -27,3 +27,6 @@ export * from './contracts/file-hub/file-classification-result.contract';
 export * from './contracts/file-hub/raw-import-file.contract';
 
 export * from './lib/marketing-shared.module';
+
+export * from './enums/mapping-profile-status.enum';
+export * from './contracts/project-source-mapping.contract';

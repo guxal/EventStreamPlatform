@@ -8,6 +8,7 @@ import { AppsFlyerSnapshotsRepository } from '../repositories/appsflyer/appsflye
 import { DataImportRepository } from '../repositories/file-hub/data-import.repository';
 import { ProjectRepository } from '../repositories/file-hub/project.repository';
 import { RawImportFileRepository } from '../repositories/file-hub/raw-import-file.repository';
+import { ProjectSourceMappingRepository } from '../repositories/file-hub/project-source-mapping.repository';
 import { ClickHouseMarketingRepository } from '../repositories/marketing/clickhouse-marketing.repository';
 import { DetectedFactRepository } from '../repositories/marketing/detected-fact.repository';
 import { MarketingEntityRepository } from '../repositories/marketing/marketing-entity.repository';
@@ -36,6 +37,7 @@ const repositories = [
   DetectedFactRepository,
   MarketingEntityRepository,
   RawImportFileRepository,
+  ProjectSourceMappingRepository,
   DataImportRepository,
   ProjectRepository,
   ProcessAuditRepository,

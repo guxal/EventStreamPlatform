@@ -28,6 +28,23 @@ export interface RawImportFileRecord {
   status: RawFileStatus;
   errorMessage?: string | null;
   errorSummary?: Record<string, unknown> | null;
+  mappingId?: string | null;
+  schemaSignature?: string | null;
+  mappingStatus?: string | null;
+  mappingValidation?: Record<string, unknown> | null;
+  mappingResolutionType?: string | null;
+  mappingRequiresReview?: boolean;
+  mappingValidationErrors?: string[];
+  nextAction?: string | null;
+  mapping?: {
+    id?: string | null;
+    status?: string | null;
+    resolutionType?: string | null;
+    schemaSignature?: string | null;
+    requiresReview?: boolean;
+    nextAction?: string | null;
+    validationErrors?: string[];
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -85,4 +102,6 @@ export interface MarketingImportProcessJobPayload {
   tags: RawImportFileTags;
   triggeredBy: string;
   correlationId: string;
+  mappingId?: string | null;
+  schemaSignature?: string | null;
 }

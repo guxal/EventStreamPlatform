@@ -221,6 +221,55 @@ export class AppController {
     return this.appService.updateProjectFileTags(projectId, fileId, payload);
   }
 
+
+  @Get('projects/:id/mappings')
+  @ApiTags('mapping-profiles')
+  listProjectMappings(@Param('id') projectId: string, @Query('source') source?: string, @Query('reportType') reportType?: string, @Query('status') status?: string) {
+    return this.appService.listMappings(projectId, { source, reportType, status });
+  }
+
+  @Get('projects/:id/mappings/:mappingId')
+  @ApiTags('mapping-profiles')
+  getProjectMapping(@Param('id') projectId: string, @Param('mappingId') mappingId: string) {
+    return this.appService.getMapping(projectId, mappingId);
+  }
+
+  @Post('projects/:id/files/:fileId/schema/analyze')
+  @ApiTags('mapping-profiles')
+  analyzeProjectFileSchema(@Param('id') projectId: string, @Param('fileId') fileId: string, @Body() payload: { useAi?: boolean }) {
+    return this.appService.analyzeFileSchema(projectId, fileId, payload ?? {});
+  }
+
+  @Post('projects/:id/files/:fileId/schema/suggest')
+  @ApiTags('mapping-profiles')
+  suggestProjectFileSchema(@Param('id') projectId: string, @Param('fileId') fileId: string) {
+    return this.appService.suggestFileSchema(projectId, fileId);
+  }
+
+  @Post('projects/:id/mappings')
+  @ApiTags('mapping-profiles')
+  createProjectMapping(@Param('id') projectId: string, @Body() payload: any) {
+    return this.appService.createMapping(projectId, payload);
+  }
+
+  @Patch('projects/:id/mappings/:mappingId')
+  @ApiTags('mapping-profiles')
+  updateProjectMapping(@Param('id') projectId: string, @Param('mappingId') mappingId: string, @Body() payload: any) {
+    return this.appService.updateMapping(projectId, mappingId, payload);
+  }
+
+  @Post('projects/:id/mappings/:mappingId/confirm')
+  @ApiTags('mapping-profiles')
+  confirmProjectMapping(@Param('id') projectId: string, @Param('mappingId') mappingId: string, @Body() payload: { confirmedBy?: string }) {
+    return this.appService.confirmMapping(projectId, mappingId, payload?.confirmedBy);
+  }
+
+  @Post('projects/:id/files/:fileId/mapping/:mappingId/apply')
+  @ApiTags('mapping-profiles')
+  applyProjectFileMapping(@Param('id') projectId: string, @Param('fileId') fileId: string, @Param('mappingId') mappingId: string) {
+    return this.appService.applyMappingToFile(projectId, fileId, mappingId);
+  }
+
   @Post('projects/:id/files/:fileId/process')
   @ApiTags('file-hub')
   @ApiOperation({ summary: 'Publish a READY_TO_PROCESS File Hub file to the marketing-imports queue' })
